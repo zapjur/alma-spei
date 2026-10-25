@@ -1,52 +1,53 @@
 # Decisions and open questions
 
-Use `CONFIRMED` only for decisions explicitly agreed. `PROPOSED` is design guidance; `OPEN` requires external input or user approval.
+Updated 2026-10-25 from stakeholder instructions. CONFIRMED denotes explicit requirements, PROPOSED denotes unapproved design, and OPEN denotes missing evidence or approval. This update authorizes documentation only.
 
-## CONFIRMED — product and data
+## CONFIRMED — product and engineering
 
-- CRM plus robust imports; donor and individual donation history.
-- Initial canonical dataset from the hospice main spreadsheet/database; two other sources mapped into it.
-- Individuals, companies and organizations supported.
-- Field schema based on real source files, preserving relevant information.
-- Certain matches may auto-link; ambiguous matches require staff decisions.
-- Staff can edit donor profiles and merge duplicates manually.
-- Import preview must precede approval and commit.
-- Duplicate-file detection and import history are needed.
-- Last committed import can be undone safely without wiping later edits.
-- Full audit trail of old and new values, actor and time.
-- Archive donors, rather than routine hard delete.
-- Daily and pre-import backups.
-- Several employees with individual accounts and equal initial permissions.
-- MVP includes donor list/details, import workflow, review queue, history and CSV/XLSX export.
-- Simple Polish-language start page, donor table with sorting/filters/search, donor detail page, side-by-side comparison, desktop-first UI.
+- Central CRM with individuals, businesses and organizations; seed from the master then reconcile tax designation and bank transfer sources through distinct adapters sharing common services.
+- Source descriptions are preliminary; inspect actual workbooks securely before final fields, mappings, identifiers, matching thresholds or deduplication rules.
+- Donor profiles and contribution histories are separate. Preserve relevant transaction detail and provenance; do not retain every input field by default.
+- Separate donor identity from correspondence recipients/groups. Prevent duplicate spouse/group mail without combining donor financial histories or treating shared addresses as identity.
+- Manual donor corrections, explicit duplicate merges, archiving, certain-only auto-linking, human review for ambiguity, no silent conflicting overwrites.
+- Monthly/annual summaries, tax-designation identification evidence, names/postal-address mailing exports and CSV/XLSX exports are MVP scope.
+- Preview and explicit approval before transactional import commit; import history, repeated-file detection, payment deduplication and actor/time/field before/after audit.
+- Undo only the latest committed import through import-specific compensation. Stop on conflict, preserve later edits, and keep audit history. Backups are a separate recovery mechanism.
+- Individual accounts, equivalent initial staff capabilities, no self-registration. MVP uses local username/password authentication, secure hashing and server-managed sessions.
+- Replaceable/configurable authentication boundary; stable internal users, external-identity mappings, provider-independent sessions and app-owned authorization. External OIDC/LDAP/AD/SSO implementations are deferred.
+- Preferred production direction is hospice-owned/administered infrastructure, on-premises support and expected internal-network access; no mandatory cloud. Final hosting design requires hospice IT consultation.
+- TLS, network restrictions, protected PostgreSQL, daily and pre-import backups, reproducible installation, upgrade/restore/rollback and operational handover are required. Internal networking does not replace security.
+- Synthetic development/test data; hospice confirms organizational/GDPR requirements before real personal data. No invented legal retention periods or compliance claims.
+- Monorepo, modular monolith, Clojure, ClojureScript with Reagent/re-frame, PostgreSQL, `src/api`, `src/ui`, `src/common` and portable shared `.cljc` models/Malli schemas/utilities. Malli preferred; precise dependencies/versions need approval.
+- Unit/integration tests from inception; English technical artifacts and Polish UI. Plan and explicit approval before substantial coding/dependency decisions. Initial implementation is a scaffold, not the entire CRM.
 
-## CONFIRMED — engineering process
+## PROPOSED — requires approval before implementation
 
-- Monorepo, modular monolith, Clojure, ClojureScript + Reagent/re-frame, PostgreSQL.
-- Shared `.cljc` code across backend and frontend, with Malli as preferred schema tooling.
-- Unit and integration tests from the start, especially imports.
-- Plan/approval before each significant implementation step.
-- First implementation milestone: application scaffold, PostgreSQL, migrations and basic UI.
-- Codex proposes the specific library ecosystem and obtains approval.
-- English technical docs and code; Polish user-facing UI.
+- Module and API boundaries, Clojure CLI/shadow-cljs build strategy and supporting directories in [architecture](architecture.md).
+- Candidate relational entities, separate unresolved aggregate observations, provenance/rule versions and synthetic generator design in [data model](data-model.md).
+- Staging lifecycle, preview version checks, serialized commit/undo checks and atomic compensation in [import workflow](import-workflow.md). Transactional commits and safe compensation themselves are confirmed requirements.
+- Small provider interface, identity resolver, mapping uniqueness, server session service, Argon2id, local provisioning/reset mechanics and configuration described in [architecture](architecture.md). Authentication requirements are confirmed, exact implementation is not.
+- Reverse proxy/application/PostgreSQL topology; host/VM versus containers; Docker Compose as a local-development option only.
+- Protected deployment artifacts, backup verification gates, compatible schema upgrades and procedures in [operations](operations.md); exact tooling and policy values need review.
 
-## OPEN — awaiting hospice or real data
+## OPEN — hospice staff / data owners
 
-- Existing internal auth/SSO system? If none, local admin-provisioned accounts are the working fallback (not yet final).
-- Deployment platform and whether app access is local-network-only or remote.
-- Three actual source files, fields, formats, sizes and quality.
-- Verified donor matching rules, confidence criteria, payment deduplication keys, column conflict handling.
-- Backup location/retention, sensitive-data retention, GDPR procedures.
-- Exact export fields and business reporting expectations.
+- Secure access to the three files (not present in repository); worksheets, layouts, formulas, dates, sizes, malformed values and source identifiers.
+- Are 2021–2025 values indicators, amounts or mixed? What do 2026 monthly cells and summary represent? Do they overlap bank or tax data?
+- Taxpayer/spouse identity and amount attribution, tax/receipt year, purpose semantics and financial overlap; what constitutes confirmed tax identification?
+- Approved matching evidence, address normalization, payment identity, genuine repeated identical payments, corrections/refunds and currency/date basis for summaries.
+- Mailing recipient conventions, spouse/group consent or instructions, shared address exceptions, archive behavior and export templates.
+- Deliberate reprocessing and undo/reimport policy; latest-eligible-import behavior after an undo; source/staging retention and audit visibility.
+- Local account provisioner/reset authority, deactivation process and future identity infrastructure.
+- Lawful basis, privacy notices, access/export/deletion handling, retention and legal holds; hospice privacy owner approval before real data.
 
-## PROPOSED — implementation details, subject to review
+## OPEN — hospice IT / operational owners
 
-- Docker Compose for local development only.
-- Portable Malli schemas in shared `.cljc`, enforced again on backend.
-- Transactional batch commits and staged preview workflow.
-- Import-specific compensation for the last import, with conflict detection.
-- Identity provider abstraction to avoid coupling business logic to local login/SSO.
+- Available host/VM, OS/resources, runtime/orchestration, internal DNS/TLS, firewall and any remote-access policy.
+- PostgreSQL administration, protected backup storage, encryption/key custody, retention, pre-import backup latency and restore drills.
+- Recovery point/time objectives, monitoring destination, incident contacts, maintenance windows and software/security update ownership.
+- Export delivery/expiry and secure temporary-file cleanup; audit and credential storage protections.
+- Exact library versions and compatibility evidence, installation artifacts and release support policy.
 
 ## Decision process
 
-Before implementing unresolved behavior, add an ADR or update this file with context, alternatives, decision, tradeoffs and date of approval. Avoid turning assumptions into hidden defaults.
+For each implementation milestone, document outline, affected files, schema/API changes, dependencies/versions, tests, risks and questions, then obtain explicit approval. Record date, approver, rationale and tradeoffs when accepting a proposal. Do not mark proposals accepted merely because they appear in this repository.

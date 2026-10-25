@@ -36,7 +36,7 @@ Upload -> identify source -> fingerprint and duplicate check
 
 ## Safe undo of the last committed import
 
-Undo only the most recent successfully committed import. Compute an inverse of its own changes (including donation creation, donor creation and allowed attribute updates), subject to dependency/conflict checks. **Do not restore a whole-database snapshot to undo an import.** If later user edits or other dependencies would be lost or corrupted, block affected undo and provide a conflict report; do not overwrite later edits. Define exact resolution behavior and test it before enabling undo.
+Undo only the most recent successfully committed import. Compute an inverse of its own changes (including donation creation, donor creation and allowed attribute updates), subject to dependency/conflict checks. **Do not restore a whole-database snapshot to undo an import.** If later user edits or other dependencies would be lost or corrupted, stop the entire undo atomically and provide an actionable conflict report; do not overwrite later edits. Define exact resolution behavior and test it before enabling undo.
 
 ## Testing priorities
 
@@ -46,3 +46,15 @@ Undo only the most recent successfully committed import. Compute an inverse of i
 - Atomic commit under invalid data, database errors and stale review state.
 - Undo with and without later edits, audit integrity and source provenance.
 - Concurrency: multiple users reviewing/importing at once.
+
+## Source adapters and financial semantics
+
+CONFIRMED: separate master, tax designation and headerless bank adapters share normalization, matching, validation and persistence services. File descriptions in [requirements](requirements.md) are preliminary; no workbooks were available in the repository. Inspect securely before final mappings or parsing assumptions. Adapters emit proposed staging records with source/worksheet/row locators, typed observations, parse uncertainty and rule versions; they do not directly write canonical entities.
+
+Seed from the master before additional reconciliation. Preserve meaningful transaction detail, keep unresolved annual/monthly observations separate, and approve cross-source overlap rules before summaries. Donor matching, financial deduplication, tax attribution and correspondence grouping are separate decisions. Taxpayer/spouse presence or a shared sender address must not silently merge donors, allocate the same amount twice or create a mailing group.
+
+PROPOSED: record content fingerprint independently of filename and retain a uniqueness/commit guard for batches. A file hash detects identical bytes, not reordered/re-saved files; approved row/payment evidence must detect overlaps while preserving genuine identical payments. Deliberate reprocessing and reimport after undo remain OPEN.
+
+PROPOSED: commit revalidates approved preview version, row/review decisions, authorization, current entity versions and required pre-import backup evidence; stale state requires a fresh preview/approval. Serialize competing commit/undo eligibility checks in PostgreSQL, then write all canonical changes, audit and compensation metadata in the same transaction. Undo also rechecks latest-batch status and every dependency/version before any compensation; one conflict rolls back the entire undo. Exact locking/version design requires approval and concurrency tests.
+
+Protect and expire uploaded workbooks/staging under approved policy; keep only necessary provenance and evidence. See [operations](operations.md) for backup gating and [data-model](data-model.md#synthetic-dataset-plan-proposed) for synthetic replay/undo scenarios.

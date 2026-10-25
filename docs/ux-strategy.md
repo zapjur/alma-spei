@@ -12,7 +12,9 @@ Hospice staff, potentially with varied technical skills. Keep all end-user conte
 - **Import wizard:** upload, analysis, matching review, full change preview and explicit approval.
 - **Matching review:** list/queue of uncertain records plus two-record side-by-side comparison with differences highlighted.
 - **Import history:** record of who imported what and when, state, results and latest-import undo action.
-- **Export:** Excel/CSV flows in the MVP.
+- **Summaries:** monthly and annual contributions with traceable facts and clearly unresolved historical semantics.
+- **Correspondence:** explicit recipients/groups and mailing preview, without combining donor finances.
+- **Export:** Excel/CSV flows including mailing names/postal addresses and group-aware duplicate prevention in the MVP.
 
 ## Interaction guidance (PROPOSED)
 

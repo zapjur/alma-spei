@@ -2,8 +2,6 @@
 
 A Polish-language internal donor CRM for Alma Spei hospice, with a strong focus on reliable consolidation of donor and donation data from multiple sources.
 
-**Status:** requirements agreed in discovery; implementation not started. This repository is a planning baseline, **not** authorization to implement the entire MVP.
-
 ## Agreed stack and development approach
 
 - Monorepo with Clojure modular monolith (backend), ClojureScript with Reagent/re-frame (frontend), PostgreSQL, and shared `.cljc` code.
@@ -19,6 +17,6 @@ A Polish-language internal donor CRM for Alma Spei hospice, with a strong focus 
 - [Data model](docs/data-model.md)
 - [Import workflow](docs/import-workflow.md)
 - [UX strategy](docs/ux-strategy.md)
-- [Security and operations](docs/security-operations.md)
+- [Operations, security and handover](docs/operations.md)
 - [Decision log and open questions](docs/decisions.md)
 - [Implementation roadmap](docs/implementation-plan.md)

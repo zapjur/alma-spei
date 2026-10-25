@@ -38,7 +38,7 @@ All end-user UI content, validation messages, navigation, and help text must be 
 
    Both backend and frontend build configurations must include `src/common` in their source paths.
 
-7. Maintain reproducible local development and explicit database migrations. Deployment target, network exposure, and identity integration are **OPEN**. Do not assume internet-facing hosting or finalize authentication architecture prematurely.
+7. Maintain reproducible local development and explicit database migrations. Prefer hospice-owned/administered on-premises infrastructure and internal-network access; final hosting, runtime and orchestration require hospice IT consultation. Local username/password authentication is confirmed for MVP behind a replaceable provider boundary; external identity integrations remain deferred. Do not assume internet-facing hosting. Read `docs/requirements.md`, `docs/architecture.md`, `docs/data-model.md`, `docs/import-workflow.md`, and `docs/operations.md` for current requirements and proposed designs.
 
 ## Donor data and imports
 
@@ -68,7 +68,7 @@ All end-user UI content, validation messages, navigation, and help text must be 
 
 19. Account for GDPR requirements and donor retention policies without inventing legal retention periods. Avoid putting unredacted personal data in application logs. Protect exports and backup files.
 
-20. Every staff member initially has equivalent application capabilities. Accounts are individual, not shared. Whether the hospice has an existing identity provider is unresolved. Do not implement self-registration.
+20. Every staff member initially has equivalent application capabilities. Accounts are individual, not shared. Use local username/password authentication for MVP, with stable internal users, provider-independent server sessions and application-owned authorization. Existing identity infrastructure remains unresolved; do not implement external integrations or self-registration in MVP.
 
 21. Update relevant English documentation when a decision changes, and keep deferred functionality explicitly marked.
 
@@ -89,3 +89,11 @@ Include:
 - Milestone acceptance criteria.
 
 Do not create application code until the user explicitly approves the proposal.
+
+## Additional stakeholder constraints
+
+- Keep donor identity and financial histories separate from correspondence recipients/groups; shared addresses and spouse/group membership do not justify donor or financial merges.
+- Monthly/annual contribution summaries, tax-identification evidence and mailing CSV/XLSX exports are MVP requirements. Historical yearly field semantics remain OPEN; do not invent transactions or double-count overlapping sources.
+- Use three source-specific adapters sharing normalization, matching, validation and persistence. Stakeholder column descriptions are preliminary until secure workbook inspection.
+- `docs/operations.md` is the operational source of truth. Hospice organizational/GDPR requirements must be confirmed before real personal data is processed; development/tests use synthetic data.
+- Documentation updates do not authorize application implementation or dependency installation. Preserve explicit milestone and dependency approval gates.

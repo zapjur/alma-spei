@@ -1,122 +1,90 @@
-# Architecture — constraints and proposals
+# Architecture — confirmed constraints and proposed design
 
-## Confirmed architectural choices
+## Status and confirmed constraints
 
-- Monorepo, modular monolith.
-- Clojure backend.
-- ClojureScript frontend using Reagent and re-frame.
-- PostgreSQL datastore.
-- Application source code organized under `src/api`, `src/ui`, and `src/common`.
-- Shared `.cljc` code in `src/common` for pure cross-platform data definitions, Malli schemas, API contracts, validation, and portable domain utilities.
-- Unit and integration tests from the beginning.
-- Codex proposes exact dependencies and versions; the user approves before implementation.
+Monorepo, modular monolith, Clojure backend, ClojureScript with Reagent/re-frame frontend, PostgreSQL, shared `.cljc` domain models/Malli schemas/portable pure utilities, and unit/integration tests from the beginning are CONFIRMED. Malli remains the preferred schema tooling; exact dependencies and versions require explicit approval. No implementation or dependency selection is authorized by this document.
 
-## Confirmed source layout
+Local username/password MVP authentication with a replaceable provider boundary is CONFIRMED. Hospice-owned/administered on-premises infrastructure with internal-network access is the preferred deployment direction; final topology, runtime and orchestration are OPEN.
+
+## Source layout and build strategy
 
 ```text
-src/
-├── api/             # Clojure backend
-│                    # HTTP API, application services,
-│                    # PostgreSQL adapters, business logic
-│
-├── ui/              # ClojureScript frontend
-│                    # Reagent views, re-frame events,
-│                    # subscriptions and UI components
-│
-└── common/          # Shared Clojure/ClojureScript
-                     # Malli schemas, API contracts,
-                     # pure validation and domain utilities
+src/api/       Clojure: HTTP, application services, authorization, persistence, IO
+src/ui/        ClojureScript: Reagent views, re-frame events/subscriptions, browser IO
+src/common/    .cljc: portable models, Malli request/response schemas and pure utilities
 ```
 
-Suggested repository-level organization (details subject to approval):
+PROPOSED supporting layout: `test/`, `resources/migrations/`, `infra/`, `scripts/`, `deps.edn`, `shadow-cljs.edn`. Propose Clojure CLI aliases for backend/dev/unit/integration workflows and a shadow-cljs browser build; both builds include `src/common`. Approval must cover compatible JDK, Clojure/ClojureScript, Node/build tooling, Reagent/re-frame, Malli, HTTP/router, lifecycle, SQL, migrations, XLSX/CSV, password hashing and tests, with exact verified versions. No versions are selected here.
+
+Shared contract namespaces should separate donor, contribution, correspondence, import/review and API envelopes. Do not expose persistence records automatically. Common code cannot contain JDBC, filesystem/browser APIs or JVM-only imports. Backend-only utilities stay in `src/api`; backend authorization and authoritative validation apply even where client validation shares schemas.
+
+## Logical flow and module boundaries (PROPOSED)
 
 ```text
-alma-spei/
-├── src/
-│   ├── api/
-│   ├── ui/
-│   └── common/
-├── test/
-├── resources/
-│   └── migrations/
-├── infra/
-├── scripts/
-├── docs/
-├── deps.edn
-├── shadow-cljs.edn
-├── README.md
-└── AGENTS.md
+Polish UI -> HTTP/API contracts -> session lookup + authorization -> application services
+                                                                  -> PostgreSQL
+Upload -> source adapter -> staging -> common normalization/validation/matching
+       -> staff review -> approved preview -> transactional commit + audit/provenance
+Contributions -> approved aggregation rules -> summaries
+Donors -> explicit correspondence memberships -> mailing selection -> export
 ```
 
-The `src/api`, `src/ui`, and `src/common` boundaries are confirmed. Supporting directory placement, build configuration, and test organization remain subject to the approved implementation proposal.
+| Backend module | Responsibility |
+| --- | --- |
+| Authentication | Provider adapters, credential verification, identity mapping; no donor business rules |
+| Users, authorization and sessions | Stable users, account lifecycle, app permissions, session issuance/revocation |
+| Donors | Identity, attributes, corrections, explicit merges and archiving |
+| Correspondence | Recipients/groups, memberships, mailing address and duplicate-mail rules; no financial merging |
+| Contributions and reporting | Transaction facts, source aggregate observations, approved attribution and summaries |
+| Imports and provenance | Three source adapters, staging, file fingerprints, validation, approval and commit orchestration |
+| Matching and review | Evidence, uncertainty, conflict resolution and recorded staff decisions |
+| Audit and undo | Protected before/after changes, import compensation and conflict/dependency checks |
+| Exports | Authorized CSV/XLSX generation, mailing group selection and safe downloads |
 
-## Suggested backend modules
+Keep HTTP, business rules and persistence adapters separate within these modules. Import adapters must not persist canonical changes directly. Use in-process services and PostgreSQL; no broker or microservice is needed.
 
-- Identity and users (provider-independent at the application boundary)
-- Donors and organizations
-- Donations
-- Imports and provenance
-- Matching and manual review
-- Audit and history
-- Export
+## Data model and migrations (PROPOSED)
 
-Keep database access, external IO, business rules, and HTTP routing clearly separated within the modular monolith.
+Detailed candidate entities and discovery constraints are in [data-model.md](data-model.md). Stable internal IDs identify donors and users. Donors, correspondence groups, group membership and contribution attribution are separate relationships. Shared address/group membership is never financial identity evidence by itself.
 
-Prefer pure matching, normalization, and domain functions for testability.
+Preserve discrete bank/tax source transaction facts where meaningful. Keep unresolved master annual/monthly observations separate from transaction facts; do not fabricate dates or sum overlapping representations. Attribution and deduplication can require review independently of donor matching. Tax-identification evidence is separate from amount attribution and correspondence grouping.
 
-## Common code policy
+Import batches, source row locators, mapping/rule versions, review decisions and audit changes provide provenance. Persist only necessary source values under a documented retention/access policy; provenance need not mean indefinite raw workbook storage. Import-specific operations and entity versions support conflict-safe compensation of the latest committed import. Proposed transaction and concurrency details are in [import-workflow.md](import-workflow.md).
 
-Place portable, cross-platform code in `src/common/**/*.cljc`.
+Use explicit ordered PostgreSQL migrations committed with reviewed changes. Initial scaffold migrations cover infrastructure/versioning only until data discovery and schema approval. Apply migrations once using controlled credentials; app credentials have least required privileges. Validate migration application and recovery against synthetic data. Destructive schema changes need backup and a tested recovery plan; reversible SQL alone is not a rollback guarantee. Prefer compatible additive changes and staged removal across releases.
 
-Appropriate responsibilities include:
+## Provider-based authentication (PROPOSED interfaces)
 
-- Malli schemas for shared request and response contracts.
-- Portable domain data definitions.
-- Pure validation and normalization functions.
-- Shared constants and enumerations.
-- Pure domain utilities needed by both frontend and backend.
+Requirements are confirmed; the following interface shapes, tables and security mechanics require design approval. Keep this a small application boundary, not a general IAM framework.
 
-Rules:
+- An authentication provider exposes `begin-authentication(context)`, `complete-authentication(context, input)` and optional provider logout. A local provider completes by verifying a username/password; future adapters may use a redirect/callback or directory bind. Return verified `{provider-id, subject}` or a generic failure. Providers never assign application permissions or issue application sessions.
+- An identity resolver maps the verified pair to a stable internal user. Proposed `external_identities` has a unique `(provider_id, subject)` and a user reference. Local credentials reference the same user; user IDs and audit actors survive username or provider changes. Do not auto-link by matching email/name or auto-create users. Administrative linking requires identity verification, audit and uniqueness checks.
+- A session service issues opaque random session identifiers after successful resolution and active-account checks. Store sessions server-side, rotate on login, expire idle/absolute lifetimes and revoke on logout/deactivation or security events. Provider tokens/credentials do not become business-service inputs. Session lifetime and storage details require approval.
+- Each request resolves the session to an internal principal. Authorization checks application permissions independently of provider claims. All initial staff receive equivalent capabilities; account provisioning remains controlled, with administration responsibility still to be assigned. Future roles remain inside the application model.
+- Local credentials use a vetted password-hashing library with a modern salted password hash (Argon2id proposed, parameters benchmarked before approval). No plaintext passwords, custom crypto or credential logging. Propose administrative provisioning/reset and first-use password change without self-registration; recovery mechanics remain OPEN.
 
-- Shared code must remain compatible with both Clojure and ClojureScript.
-- Do not introduce JDBC, filesystem access, browser-only APIs, or JVM-only imports into common code.
-- Avoid platform-specific dependencies unless explicitly isolated through reader conditionals and justified.
-- Server-side authorization and authoritative validation must remain in the backend.
-- Do not automatically expose persistence entity schemas as public API contracts.
-- Keep database access and infrastructure concerns in `src/api`.
-- Keep UI state management, browser interactions, Reagent components, and re-frame logic in `src/ui`.
-- Avoid placing code in `src/common` solely because multiple backend modules use it. Backend-only utilities should remain within the backend.
+Proposed configuration: enabled provider IDs, default login mechanism, local-login availability, session timeout/cookie settings, public base URL and trusted proxy settings. External issuer/client/directory settings would be added only with an approved adapter; secrets are injected separately and startup fails on invalid configuration. MVP enables local authentication only. Keep a deployment stable provider ID so renaming a display label cannot orphan mappings.
 
-Both backend and frontend build configurations must include `src/common` in their source paths.
+Use TLS, Secure/HttpOnly/SameSite cookies, CSRF protection on state-changing cookie-authenticated requests, login throttling, generic failure messages and protected security audit records. Exact mechanisms/libraries require approval. Application logout always revokes the app session; future provider-wide logout is separate and provider-specific.
 
-Namespace naming should reflect the logical module boundaries, for example:
+Limitations: abstraction does not implement OIDC/LDAP, MFA, identity synchronization, federation, automatic account linking or organization-wide logout. Each integration needs its own threat review, mapping/provisioning policy, outage behavior and tests. Minimal changes means business services continue to consume the same internal principal; adapter/configuration and login UI work will still be needed.
 
-```clojure
-alma-spei.api.donors.service
-alma-spei.ui.views.donors
-alma-spei.common.schemas.donor
+## Deployment topology (PROPOSED)
+
+```text
+Staff browser on permitted network
+  -> TLS endpoint / reverse proxy
+  -> application process serving API and frontend assets
+  -> PostgreSQL on protected host/network
+  -> restricted backup destination
 ```
 
-## Integration boundaries and operations
+Support reproducible on-premises installation without mandatory cloud services. PostgreSQL is reachable only by authorized application/administration paths, never directly by staff devices. TLS may terminate at an IT-managed proxy; trusted proxy behavior must be explicitly configured. A dedicated host/VM or containers are options; runtime, OS and orchestration remain OPEN. A network drive may be evaluated as protected backup storage, not assumed to be an application host or suitable PostgreSQL storage.
 
-- PostgreSQL migrations are explicit, versioned, and reversible where feasible.
-- Local containerized development is a **PROPOSAL**, not a confirmed deployment environment.
-- Production host, deployment method, network access, authentication system, backup storage, and monitoring remain **OPEN**.
-- Do not implement a public deployment or choose an identity provider without a decision.
+IT must confirm DNS/certificates, firewall/VPN policy, service accounts, resources, storage, backup/restore capability and operational ownership. Internal access still requires full authentication and application security. [Operations](operations.md) defines the proposed installation, upgrade, recovery and handover procedures.
 
-## Dependencies to evaluate in the first proposal
+## Verification and approval gates
 
-- HTTP server and router
-- System lifecycle management
-- SQL access
-- Database migration tooling
-- Malli integration and schema organization
-- Authentication and session mechanics (design only, pending identity decision)
-- ClojureScript build tool
-- Reagent and re-frame versions
-- Component and UI approach
-- Test libraries
-- Integration test infrastructure and fixtures
-- XLSX and CSV processing
+Unit tests cover portable normalization and contracts on JVM and JavaScript, matching/review rules, group selection and aggregation. PostgreSQL integration tests cover constraints, transactions, provenance, concurrent commits, undo conflicts, sessions and authorization. Test a fake future provider against the same internal-principal contract to demonstrate business-logic independence without implementing SSO. Use synthetic fixtures only.
 
-Do not choose versions by guesswork. Validate compatibility before implementation.
+Before coding, approve a milestone outline with affected files, schema/API changes, exact dependencies/versions, tests, risks and open questions. Before real data, approve source mappings, privacy policies and deployment/operational readiness. See [implementation-plan.md](implementation-plan.md).
