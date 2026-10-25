@@ -1,0 +1,10 @@
+{:deps {:aliases [:ui]}
+ :builds {:app {:target :browser
+                :output-dir "resources/public/js"
+                :asset-path "/js"
+                :modules {:app {:init-fn alma-spei.ui.core/init}}
+                :devtools {:after-load alma-spei.ui.core/mount!}}
+          :test {:target :node-test
+                 :output-to "target/ui-tests.js"
+                 :ns-regexp "-test$"
+                 :autorun true}}}

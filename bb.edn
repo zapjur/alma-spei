@@ -1,0 +1,27 @@
+{:min-bb-version "1.12.218"
+ :paths ["dev"]
+ :tasks
+ {:requires ([alma-spei.dev.tasks :as tasks])
+  init {:doc "Create protected local database secrets without replacing existing files."
+        :task (tasks/init!)}
+  db-up {:doc "Start local PostgreSQL and wait until it is healthy."
+         :task (tasks/compose! "up" "-d" "--wait" "db")}
+  db-down {:doc "Stop local PostgreSQL while preserving its data volume."
+           :task (tasks/compose! "down")}
+  migrate {:doc "Apply approved migrations using local migration credentials."
+           :task (tasks/migrate!)}
+  api {:doc "Start the backend on loopback using local runtime credentials."
+       :task (tasks/start-api!)}
+  repl {:doc "Start REPLy, a local editor nREPL, and backend reload-on-save."
+        :override-builtin true
+        :task (tasks/repl!)}
+  ui {:doc "Watch and hot-reload the frontend."
+      :task (tasks/ui! "watch")}
+  build {:doc "Compile the optimized frontend. Stop the UI watcher first."
+         :task (tasks/ui! "release")}
+  check {:doc "Run lint, formatting, JVM/JavaScript tests, and the optimized build."
+         :task (tasks/check!)}
+  integration {:doc "Run synthetic PostgreSQL integration tests in isolated databases."
+               :task (tasks/integration!)}
+  smoke {:doc "Check health endpoints and compiled assets on the running backend."
+         :task (tasks/smoke!)}}}
