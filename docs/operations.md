@@ -62,3 +62,12 @@ Assign owners and substitutes before launch:
 | Dependency/security review, patches, tests, releases and migration support | Named software maintainer with support agreement |
 
 Agree patch cadence, urgent vulnerability response, supported runtime versions, maintenance budget, escalation contacts and coverage during absence. Operational handover includes inventory, architecture/configuration guide, protected secret/key custody, account procedures, backup/restore evidence, upgrade/rollback rehearsal, monitoring checks, source/import limitations, user training and signed ownership. No deployment sign-off until these responsibilities and recovery procedures are accepted.
+
+## Development foundation boundary
+
+Milestone 1 local setup is documented in [development.md](development.md). It binds
+HTTP and PostgreSQL to loopback, keeps generated credentials outside version control,
+and separates migration/runtime roles. Compose is approved for development only.
+The skeleton has no authentication, backup automation or production logging provider;
+it must not process real personal data. Production installation, secret rotation,
+TLS, backup/restore and privacy approval remain subject to the gates above.

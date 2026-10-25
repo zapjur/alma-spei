@@ -1,0 +1,14 @@
+{
+  "name": "alma-spei",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal donor CRM foundation",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "process": "0.11.10",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

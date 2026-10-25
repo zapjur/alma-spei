@@ -2,7 +2,7 @@
 
 ## Status and confirmed constraints
 
-Monorepo, modular monolith, Clojure backend, ClojureScript with Reagent/re-frame frontend, PostgreSQL, shared `.cljc` domain models/Malli schemas/portable pure utilities, and unit/integration tests from the beginning are CONFIRMED. Malli remains the preferred schema tooling; exact dependencies and versions require explicit approval. No implementation or dependency selection is authorized by this document.
+Monorepo, modular monolith, Clojure backend, ClojureScript with Reagent/re-frame frontend, PostgreSQL, shared `.cljc` domain models/Malli schemas/portable pure utilities, and unit/integration tests from the beginning are CONFIRMED. Malli remains the preferred schema tooling; exact dependencies and versions require explicit approval. Milestone 1 implementation and dependency selections were subsequently approved; see the decision log and development guide. Later milestones still require approval.
 
 Local username/password MVP authentication with a replaceable provider boundary is CONFIRMED. Hospice-owned/administered on-premises infrastructure with internal-network access is the preferred deployment direction; final topology, runtime and orchestration are OPEN.
 
@@ -14,7 +14,7 @@ src/ui/        ClojureScript: Reagent views, re-frame events/subscriptions, brow
 src/common/    .cljc: portable models, Malli request/response schemas and pure utilities
 ```
 
-PROPOSED supporting layout: `test/`, `resources/migrations/`, `infra/`, `scripts/`, `deps.edn`, `shadow-cljs.edn`. Propose Clojure CLI aliases for backend/dev/unit/integration workflows and a shadow-cljs browser build; both builds include `src/common`. Approval must cover compatible JDK, Clojure/ClojureScript, Node/build tooling, Reagent/re-frame, Malli, HTTP/router, lifecycle, SQL, migrations, XLSX/CSV, password hashing and tests, with exact verified versions. No versions are selected here.
+Supporting layout now includes `test/`, `resources/migrations/`, `infra/`, `dev/`, `bb.edn`, `deps.edn`, and `shadow-cljs.edn`. The approved foundation uses Clojure CLI aliases for backend/dev/unit/integration workflows and a shadow-cljs browser build; both builds include `src/common`. Babashka provides developer tasks without a separate `scripts/` directory. Exact approved versions are recorded in the manifests and development guide. Libraries for later features, including XLSX/CSV and password hashing, still require approval.
 
 Shared contract namespaces should separate donor, contribution, correspondence, import/review and API envelopes. Do not expose persistence records automatically. Common code cannot contain JDBC, filesystem/browser APIs or JVM-only imports. Backend-only utilities stay in `src/api`; backend authorization and authoritative validation apply even where client validation shares schemas.
 
@@ -88,3 +88,16 @@ IT must confirm DNS/certificates, firewall/VPN policy, service accounts, resourc
 Unit tests cover portable normalization and contracts on JVM and JavaScript, matching/review rules, group selection and aggregation. PostgreSQL integration tests cover constraints, transactions, provenance, concurrent commits, undo conflicts, sessions and authorization. Test a fake future provider against the same internal-principal contract to demonstrate business-logic independence without implementing SSO. Use synthetic fixtures only.
 
 Before coding, approve a milestone outline with affected files, schema/API changes, exact dependencies/versions, tests, risks and open questions. Before real data, approve source mappings, privacy policies and deployment/operational readiness. See [implementation-plan.md](implementation-plan.md).
+
+## Approved foundation implementation
+
+Milestone 1 implements Ring/Jetty with Reitit and Integrant, explicit JDBC and
+Migratus boundaries, shared Malli health contracts, and a same-origin Polish
+Reagent/re-frame shell built by shadow-cljs. The browser alias replaces backend
+paths/dependencies with `src/ui`, `src/common` and frontend tests. Dependencies
+flow from API/UI into common, never the reverse. Health responses use JSON;
+unknown API routes return JSON errors. Business feature modules are deferred.
+
+See [development.md](development.md) for exact configuration and workflow, and
+[decisions.md](decisions.md) for the approval. These implementation choices do not
+approve proposed domain entities, authentication interfaces or production topology.

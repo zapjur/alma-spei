@@ -1,6 +1,6 @@
 # Decisions and open questions
 
-Updated 2026-10-25 from stakeholder instructions. CONFIRMED denotes explicit requirements, PROPOSED denotes unapproved design, and OPEN denotes missing evidence or approval. This update authorizes documentation only.
+Updated 2026-10-25 from stakeholder instructions. CONFIRMED denotes explicit requirements, PROPOSED denotes unapproved design, and OPEN denotes missing evidence or approval. The baseline initially authorized documentation only. The Milestone 1 approval below authorizes the foundation implementation.
 
 ## CONFIRMED — product and engineering
 
@@ -51,3 +51,61 @@ Updated 2026-10-25 from stakeholder instructions. CONFIRMED denotes explicit req
 ## Decision process
 
 For each implementation milestone, document outline, affected files, schema/API changes, dependencies/versions, tests, risks and questions, then obtain explicit approval. Record date, approver, rationale and tradeoffs when accepting a proposal. Do not mark proposals accepted merely because they appear in this repository.
+
+## CONFIRMED — Milestone 1 approval (2026-10-25)
+
+The user explicitly approved all decisions in section 9 of the Milestone 1
+proposal and instructed implementation. This approval covers the proposed exact
+dependencies, Jetty, plain EDN configuration with explicit overrides/protected
+secret files, host JVM/Node plus Compose PostgreSQL, same-origin assets/API,
+explicit migrations and separate database roles, infrastructure-only schema,
+built-in tests with test.check/PostgreSQL/Node, and GitHub Actions without deployment.
+The user separately approved `process@0.11.10` after the browser release build
+identified React's process shim requirement. No domain implementation is authorized.
+
+Exact dependency pins are in `deps.edn`, `package.json` and `package-lock.json`.
+JDK Temurin 25.0.5+8, Node 24.20.0 and Clojure CLI 1.12.5.1664 are the reproducible
+toolchain target. PostgreSQL 18.6 is pinned by multi-platform digest in Compose.
+Rationale and workflow are in [development.md](development.md). The selected
+versions resolved successfully; cross-platform compilation and foundation tests
+provide compatibility evidence, not a guarantee for future feature dependencies.
+
+Remaining proposals in this document and other architecture sections retain
+their prior status. Production topology, domain schema, authentication mechanics,
+workbook mappings and privacy/operational policy values remain unapproved.
+
+## CONFIRMED — development helpers without Python
+
+At the user's request, local secret initialization and smoke-response checks use
+Node built-in APIs instead of Python. Node is already required by the approved
+frontend toolchain; no additional npm dependency is introduced. Launch and test
+instructions are included directly in the README.
+
+## CONFIRMED — Babashka development automation
+
+The user approved replacing Bash/Node developer helpers with Babashka. Pin
+**1.12.218**, matching the installed and verified release. This supersedes the
+Node helper choice above. `bb.edn` declares tasks; `dev/alma_spei/dev/tasks.clj`
+uses built-in filesystem, cryptography, process, HTTP and JSON facilities.
+No extra Clojure/npm dependencies are needed. CI verifies the pinned archive
+checksum. Node remains the frontend build/test runtime.
+
+Tasks cover initialization, database start/stop, migration, backend, frontend,
+checks, integration and smoke verification. Local secret defaults are injected
+into child processes while preserving explicit overrides. The old `scripts/`
+helpers and leftover Python cache are removed; production infrastructure and
+business scope are unchanged.
+
+## CONFIRMED — REPLy and backend reload-on-save
+
+The user approved a development entry point matching `clojure -M:repl`, with
+REPLy, nREPL, cider middleware and automatic namespace reload. Exact development
+pins are `reply/reply` 0.5.1, `nrepl/nrepl` 1.8.0, `cider/cider-nrepl` 0.63.1,
+and `org.clojure/tools.namespace` 1.5.1. They are scoped to the `:repl` alias.
+
+A development-only polling watcher refreshes backend/shared source namespaces
+and rebuilds application components in the existing JVM. Syntax errors leave the
+REPL/watcher available and the backend stopped until a successful retry. State
+inside rebuilt components may reset; database contents are preserved. The nREPL
+binds only to loopback and writes its ephemeral port to ignored `.nrepl-port`.
+No API/schema, production deployment, authentication or domain scope changes.

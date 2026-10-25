@@ -1,0 +1,86 @@
+name: Foundation checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '25.0.5+8'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install pinned Babashka
+        run: |
+          archive_dir="$(mktemp -d)"
+          curl --fail --silent --show-error --location https://github.com/babashka/babashka/releases/download/v1.12.218/babashka-1.12.218-linux-amd64-static.tar.gz -o "$archive_dir/babashka.tar.gz"
+          echo "7bd028cc794732ffde3da31ce4379840893c8e54f1046f92a8dfc4f4b3cddaf8  $archive_dir/babashka.tar.gz" | sha256sum --check
+          tar -xzf "$archive_dir/babashka.tar.gz" -C "$archive_dir"
+          sudo install -m 755 "$archive_dir/bb" /usr/local/bin/bb
+          bb --version
+      - name: Install pinned Clojure CLI
+        run: |
+          curl --fail --silent --show-error --location https://download.clojure.org/install/linux-install-1.12.5.1664.sh -o /tmp/install-clojure.sh
+          echo 'fb2f0ce23373d64bb4f13fce2ce2924c54ee0c033755357900808a1250621d82  /tmp/install-clojure.sh' | sha256sum --check
+          cd "$(mktemp -d)"
+          sudo bash /tmp/install-clojure.sh
+      - run: npm ci --ignore-scripts
+      - run: bb check
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '25.0.5+8'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install pinned Babashka
+        run: |
+          archive_dir="$(mktemp -d)"
+          curl --fail --silent --show-error --location https://github.com/babashka/babashka/releases/download/v1.12.218/babashka-1.12.218-linux-amd64-static.tar.gz -o "$archive_dir/babashka.tar.gz"
+          echo "7bd028cc794732ffde3da31ce4379840893c8e54f1046f92a8dfc4f4b3cddaf8  $archive_dir/babashka.tar.gz" | sha256sum --check
+          tar -xzf "$archive_dir/babashka.tar.gz" -C "$archive_dir"
+          sudo install -m 755 "$archive_dir/bb" /usr/local/bin/bb
+          bb --version
+      - name: Install pinned Clojure CLI
+        run: |
+          curl --fail --silent --show-error --location https://download.clojure.org/install/linux-install-1.12.5.1664.sh -o /tmp/install-clojure.sh
+          echo 'fb2f0ce23373d64bb4f13fce2ce2924c54ee0c033755357900808a1250621d82  /tmp/install-clojure.sh' | sha256sum --check
+          cd "$(mktemp -d)"
+          sudo bash /tmp/install-clojure.sh
+      - run: bb init
+      - run: bb db-up
+      - run: bb integration
+      - run: bb migrate
+      - run: npm ci --ignore-scripts
+      - run: bb build
+      - name: Verify optimized assets over HTTP
+        shell: bash
+        run: |
+          bb api > /tmp/alma-spei-http.log 2>&1 &
+          application_pid=$!
+          trap 'kill "$application_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --silent --fail http://127.0.0.1:3000/api/health/ready > /dev/null; then break; fi
+            sleep 1
+          done
+          bb smoke
+      - name: Stop disposable CI environment
+        if: always()
+        run: docker compose -p alma-spei -f infra/compose.yaml down --volumes

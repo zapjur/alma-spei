@@ -1,0 +1,4 @@
+{:environment :development
+ :http {:host "127.0.0.1" :port 3000}
+ :database {:host "127.0.0.1" :port 5432 :name "alma_spei_dev"
+            :user "alma_spei_app" :connect-timeout 3 :query-timeout 2}}

@@ -155,3 +155,10 @@ dist
 
 # SvelteKit build / generate output
 .svelte-kit
+
+# Foundation local secrets and generated assets
+.env.*.local
+.secrets/
+config.local.edn
+.shadow-cljs/
+resources/public/js/

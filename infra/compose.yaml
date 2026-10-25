@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:18.6@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
+    environment:
+      POSTGRES_DB: alma_spei_dev
+      POSTGRES_USER: alma_spei_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_password
+    ports:
+      - "127.0.0.1:${ALMA_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - admin_password
+      - migration_password
+      - app_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alma_spei_admin -d alma_spei_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+secrets:
+  admin_password:
+    file: ../.secrets/admin-password
+  migration_password:
+    file: ../.secrets/migration-password
+  app_password:
+    file: ../.secrets/app-password
+volumes:
+  postgres_data:

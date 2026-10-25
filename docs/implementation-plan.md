@@ -1,14 +1,14 @@
 # Incremental implementation plan
 
-Every implementation milestone requires an outline, affected files, schema/API changes, exact dependencies/versions, tests, risks and unanswered questions, followed by explicit user approval. This roadmap is not permission to code. Current work ends with documentation.
+Every implementation milestone requires an outline, affected files, schema/API changes, exact dependencies/versions, tests, risks and unanswered questions, followed by explicit user approval. This roadmap is not blanket permission to code. Milestone 1 was explicitly approved on 2026-10-25; all later milestones retain their approval gates.
 
-## Milestone 0 — bootstrap proposal and secure discovery (NEXT; planning only)
+## Milestone 0 — bootstrap proposal and secure discovery
 
 Present the dependency/version compatibility proposal, source/build/test layout, modules, API conventions, local workflow, migration strategy and first scaffold plan. Clojure CLI and shadow-cljs are proposals; local PostgreSQL may be native or containerized, pending approval. In parallel, arrange authorized workbook inspection and document a sanitized field/semantics catalog; do not put actual personal values in prompts or the repository.
 
 Affected artifacts: architecture/decision/requirements/data-model/operations documentation and a reviewed scaffold outline. No migrations, dependencies or application code yet. Acceptance: approval-ready exact tool versions, compatibility evidence, test matrix and affected-file list; explicit unresolved schema, attribution and IT/privacy questions; approved secure inspection arrangements. Risks: unavailable files, ambiguous financial semantics and unsupported hosting assumptions.
 
-## Milestone 1 — approved development skeleton
+## Milestone 1 — approved development skeleton (implemented; validation recorded in development guide)
 
 Proposed affected files: `deps.edn`, `shadow-cljs.edn`, `src/api`, `src/ui`, `src/common`, `test`, `resources/migrations` and development instructions. Provide backend health API, Polish basic UI, representative shared Malli contract, PostgreSQL migration runner and unit/integration harness. Both builds include `src/common`; no fabricated production donor schema.
 
@@ -39,3 +39,13 @@ Consult IT, approve topology/runtime, privacy policies and named owners. Rehears
 ## Deferred unless approved
 
 External OIDC/LDAP/SSO adapters, complex role hierarchy, self-registration, advanced analytics, public internet access and distributed infrastructure. Required monthly/annual contribution summaries remain MVP scope.
+
+## Milestone 1 delivery scope
+
+The approved foundation includes exact dependency manifests, separate source roots,
+local secret/configuration handling, Compose PostgreSQL with separate roles, an
+infrastructure migration, health API and Polish shell, shared contract tests on
+JVM/Node, PostgreSQL migration/transaction/privilege/lifecycle tests, lint/format
+checks, optimized frontend build and GitHub Actions. See [development.md](development.md).
+Secure workbook discovery remains OPEN and is not required to run this synthetic
+foundation. Milestone 2 has not been approved.
