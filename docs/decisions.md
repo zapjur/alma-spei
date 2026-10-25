@@ -109,3 +109,14 @@ REPL/watcher available and the backend stopped until a successful retry. State
 inside rebuilt components may reset; database contents are preserved. The nREPL
 binds only to loopback and writes its ephemeral port to ignored `.nrepl-port`.
 No API/schema, production deployment, authentication or domain scope changes.
+
+## CONFIRMED — CI Java setup correction
+
+The user requested fixing the Java setup failure. Both CI jobs now use
+`actions/setup-java` v5 pinned to commit
+`b6effb05e454b25005698d916606bdc6ffcbf961`. The exact Temurin version selector is
+`25.0.5+8.0.LTS`, matching the provider's available version identifier; the earlier
+abbreviated `25.0.5+8` selector did not resolve. This corrects the selection of the
+same approved JDK release. The README and development prerequisite list use the
+full identifier. GitHub-hosted Ubuntu runners provide the Node 24 action runtime;
+no application dependency or schema changes are involved.

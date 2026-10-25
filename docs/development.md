@@ -11,7 +11,7 @@ production deployment. Operations and privacy authority remains `operations.md`.
 
 ## Prerequisites and pinned versions
 
-- Eclipse Temurin JDK **25.0.5+8** (JDK 25 LTS).
+- Eclipse Temurin JDK **25.0.5+8.0.LTS** (JDK 25 LTS).
 - Clojure CLI **1.12.5.1664**; the project pins Clojure **1.12.6** separately.
 - Node **24.20.0**, with its bundled npm; `.nvmrc` records the version.
 - Babashka **1.12.218** for development tasks (`bb.edn`).

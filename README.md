@@ -30,7 +30,7 @@ or real donor data.
 
 ## Launch locally
 
-Prerequisites: JDK **25.0.5+8**, Clojure CLI **1.12.5.1664**, Node **24.20.0**
+Prerequisites: JDK **25.0.5+8.0.LTS**, Clojure CLI **1.12.5.1664**, Node **24.20.0**
 (with npm), Babashka **1.12.218**, and running Docker Desktop/Engine with Compose v2.
 Select these tool versions first, then run commands from the repository root.
 Babashka installation options are in the [official guide](https://book.babashka.org/#_installation);
