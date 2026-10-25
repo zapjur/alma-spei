@@ -71,3 +71,10 @@ and separates migration/runtime roles. Compose is approved for development only.
 The skeleton has no authentication, backup automation or production logging provider;
 it must not process real personal data. Production installation, secret rotation,
 TLS, backup/restore and privacy approval remain subject to the gates above.
+
+Local/CI Compose secret mounts are copied by a root bootstrap wrapper into
+container-only tmpfs with PostgreSQL ownership and private directory/file modes
+(0700/0600), before the official entrypoint drops privileges. This accommodates
+Linux host-owned secret files without weakening host permissions. Initialization
+rejects missing/empty role passwords, and health checks use authenticated TCP.
+This development bootstrap does not define a production secrets-management policy.

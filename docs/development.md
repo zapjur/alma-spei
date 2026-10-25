@@ -275,3 +275,25 @@ operation were verified against the running local nREPL. A saved backend file
 triggered successful reload and the liveness endpoint responded afterward.
 `bb check` passed with 6 JVM unit tests/29 assertions, 1 reload test/10 assertions,
 5 JavaScript tests/13 assertions, lint/format checks, and the optimized build.
+
+## PostgreSQL secret ownership on Linux
+
+Compose mounts retain the host secret files' ownership and permissions on Linux.
+A root container entrypoint copies the required files into `/run/alma-spei`, a
+container-only tmpfs directory owned by `postgres` with mode 0700; copied secrets
+are mode 0600. The official PostgreSQL entrypoint then drops privileges normally.
+Host `.secrets/` permissions are unchanged. Role initialization fails immediately
+on unreadable or empty passwords and on SQL errors.
+
+The Compose health check authenticates the application account over TCP. It does
+not report healthy during PostgreSQL's temporary Unix-socket-only init server.
+Existing volumes are not reinitialized or repaired automatically; the wrapper does
+not rotate passwords. CI always creates a fresh disposable volume.
+
+Linux CI fix verification: reproduced unreadable runner-owned 0600 secrets and
+password-less roles before the fix. With the wrapper, both roles had password
+hashes, copied permissions were 0700/0600, and host permissions stayed 0600.
+The PostgreSQL suite passed (3 tests/19 assertions) against both the Linux
+ownership simulation and a fresh Compose project. Migration and backend HTTP
+smoke checks also passed. Temporary test databases/containers were isolated from
+existing development volumes. Remote Actions must be rerun after pushing.

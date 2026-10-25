@@ -120,3 +120,15 @@ abbreviated `25.0.5+8` selector did not resolve. This corrects the selection of 
 same approved JDK release. The README and development prerequisite list use the
 full identifier. GitHub-hosted Ubuntu runners provide the Node 24 action runtime;
 no application dependency or schema changes are involved.
+
+## CONFIRMED — Linux CI PostgreSQL initialization fix
+
+The failed integration run reported migration-role password authentication errors.
+A Linux ownership reproduction showed PostgreSQL could not read host-owned 0600
+role secrets, while command substitutions inside psql arguments hid the read
+failures and roles were created without passwords. The development/CI container
+now copies secrets into a PostgreSQL-owned private tmpfs before dropping privileges.
+Host permissions remain private. Role initialization explicitly checks reads and
+empty values and enables psql ON_ERROR_STOP. The health check authenticates the
+runtime account over TCP after initialization. No application/schema/dependency
+changes are required; existing database volumes are not silently modified.
