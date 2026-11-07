@@ -68,7 +68,7 @@ Agree patch cadence, urgent vulnerability response, supported runtime versions, 
 Milestone 1 local setup is documented in [development.md](development.md). It binds
 HTTP and PostgreSQL to loopback, keeps generated credentials outside version control,
 and separates migration/runtime roles. Compose is approved for development only.
-The skeleton has no authentication, backup automation or production logging provider;
+The application has local authentication but no backup automation or production logging provider;
 it must not process real personal data. Production installation, secret rotation,
 TLS, backup/restore and privacy approval remain subject to the gates above.
 
@@ -78,3 +78,20 @@ container-only tmpfs with PostgreSQL ownership and private directory/file modes
 Linux host-owned secret files without weakening host permissions. Initialization
 rejects missing/empty role passwords, and health checks use authenticated TCP.
 This development bootstrap does not define a production secrets-management policy.
+
+
+## Authentication development boundary — Milestone 2A
+
+Local accounts, server sessions, account administration and protected security
+audit are implemented under [the approved proposal](milestone-2-auth.md). This
+is not production operational sign-off. HTTP remains loopback-only, with an
+explicit development exception to Secure cookies and exact loopback Origin checks.
+Production TLS/proxy configuration must be approved before deployment.
+
+Assign named account administrators and an approved temporary-password handover
+channel. Bootstrap is interactive and disabled once any account exists; it is
+not a recovery backdoor. Account deactivation preserves actor history. Security
+audit retention and incident access, loss-of-all-administrators recovery, target
+hardware Argon2id capacity, and dependency vulnerability review are deployment
+gates. Rotating the CSRF signing file invalidates open forms; server sessions
+remain separately revocable. No real personal data may be used in development.

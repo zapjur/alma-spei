@@ -1,5 +1,6 @@
 (ns alma-spei.ui.views
-  (:require [re-frame.core :as rf]))
+  (:require [re-frame.core :as rf]
+            [alma-spei.ui.auth.views :as auth]))
 
 (def messages
   {:loading "Sprawdzanie połączenia…"
@@ -13,5 +14,6 @@
      [:h1 "Alma Spei"]
      [:p "Baza darczyńców"]
      [:p {:role "status" :aria-live "polite"} (get messages status)]
+     [auth/panel]
      [:button {:type "button" :disabled (= :loading status)
                :on-click #(rf/dispatch [:app/initialize])} "Sprawdź ponownie"]]))

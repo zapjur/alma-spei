@@ -43,6 +43,8 @@ bb init
 npm ci --ignore-scripts
 bb db-up
 bb migrate
+# First setup only: create a named administrator in this terminal.
+bb create-admin
 bb repl
 ```
 
@@ -53,7 +55,8 @@ bb ui
 ```
 
 After compilation completes, open **http://127.0.0.1:3000**. The Polish shell
-should display “Aplikacja jest gotowa.” Keep both terminal processes running.
+should display “Aplikacja jest gotowa.” Sign in using the generated temporary
+password and choose a new password before continuing. Keep both terminal processes running.
 The backend command opens REPLy and starts an nREPL with cider middleware on
 loopback. Save a `.clj`/`.cljc` file under `src/api` or `src/common` to reload the
 backend inside the same JVM. Application components briefly stop and restart;
@@ -106,3 +109,13 @@ bb db-down
 
 This preserves the database volume. Repeat the launch commands to restart.
 See [Local development](docs/development.md) for configuration and troubleshooting.
+
+
+## Local accounts
+
+Account administrators use **Konta użytkowników** to create named accounts,
+reset passwords, deactivate accounts and designate additional administrators.
+Temporary passwords appear once for secure handover. Usernames cannot change.
+Sessions expire after 30 idle minutes or eight hours total. `bb create-admin`
+requires an interactive terminal and refuses once any account exists.
+Use synthetic accounts only; see [authentication](docs/milestone-2-auth.md).

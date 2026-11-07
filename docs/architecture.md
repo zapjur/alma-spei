@@ -101,3 +101,24 @@ unknown API routes return JSON errors. Business feature modules are deferred.
 See [development.md](development.md) for exact configuration and workflow, and
 [decisions.md](decisions.md) for the approval. These implementation choices do not
 approve proposed domain entities, authentication interfaces or production topology.
+
+
+## Approved Milestone 2A implementation
+
+The user approved [the authentication proposal](milestone-2-auth.md). The local
+provider verifies credentials, identity resolution maps provider/subject to stable
+users, and the application issues opaque PostgreSQL-backed sessions and checks
+permissions independently. Only token digests are stored; session invalidation versions belong to internal
+users, independently of local credentials. Argon2id is provided by
+`buddy/buddy-hashers` 2.0.167; crypto/JDBC remain backend-only. Shared Malli contracts
+and portable password validation stay in `src/common` and run on JVM/JavaScript.
+
+Security mutations use a PostgreSQL transaction advisory lock to serialize
+last-administrator and credential/session invariants across processes. Account
+changes, session invalidation and audit append commit together. Runtime cannot
+modify/delete audit records. Login and current-password attempts are throttled
+in PostgreSQL. Required-password-change sessions cannot administer accounts.
+
+The Reagent account UI retains secrets transiently and uses tested pure state
+transitions. External provider implementation, production topology, donor models
+and import workflows remain deferred or subject to their existing approval gates.

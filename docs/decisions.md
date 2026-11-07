@@ -132,3 +132,26 @@ Host permissions remain private. Role initialization explicitly checks reads and
 empty values and enables psql ON_ERROR_STOP. The health check authenticates the
 runtime account over TCP after initialization. No application/schema/dependency
 changes are required; existing database volumes are not silently modified.
+
+
+## CONFIRMED — Milestone 2A authentication approval (2026-10-25)
+
+The user explicitly approved [the technical proposal](milestone-2-auth.md) and
+instructed implementation. Approval includes `buddy/buddy-hashers` 2.0.167 with
+Argon2id, the security schema/API, Polish account UI, bootstrap command and tests.
+
+Confirmed workflows: assigned, unique, case-insensitive immutable usernames;
+editable display names; equal staff CRM capabilities and separate account
+administration with multiple administrators; server command for the first account;
+one-time temporary passwords requiring first-use change; administrator resets;
+30-minute idle / eight-hour absolute sessions without persistent login; current
+password required for own changes; password changes/reset revoke other sessions;
+deactivation revokes all sessions while retaining audit attribution; last active
+administrator cannot be deactivated or demoted.
+
+The user chose an eight-character minimum without spaces, with uppercase letter,
+number and symbol. Approved implementation bounds passwords at 128 Unicode code
+points and treats whitespace conservatively across JVM/JavaScript. No email,
+self-registration, SSO or MFA was added. Only local development/test runtime is
+configured. Remaining Milestone 2 donor/discovery decisions and all production
+privacy/operational gates retain their prior status.

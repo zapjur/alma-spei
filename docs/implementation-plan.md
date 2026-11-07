@@ -48,4 +48,15 @@ infrastructure migration, health API and Polish shell, shared contract tests on
 JVM/Node, PostgreSQL migration/transaction/privilege/lifecycle tests, lint/format
 checks, optimized frontend build and GitHub Actions. See [development.md](development.md).
 Secure workbook discovery remains OPEN and is not required to run this synthetic
-foundation. Milestone 2 has not been approved.
+foundation. Milestone 2A authentication was subsequently approved and implemented;
+the remaining domain/discovery scope of Milestone 2 is not approved.
+
+
+## Milestone 2A delivery scope
+
+The user approved [the authentication proposal](milestone-2-auth.md), including
+the exact password-hashing dependency. Delivery includes local provider/identity
+resolution, stable users, PostgreSQL sessions, equivalent staff CRM capabilities
+with separate account administration, first-administrator command, Polish account
+UI, protected security audit and synthetic tests. Approval does not extend to
+donor schema, workbook mappings, real data or production deployment.

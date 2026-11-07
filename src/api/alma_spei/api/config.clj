@@ -59,8 +59,14 @@
   ([] (load-config (System/getenv)))
   ([env]
    (try
-     (resolve-config (edn/read-string (slurp (io/resource "config.edn")))
-                     (if-let [file (get env "ALMA_CONFIG_FILE")]
-                       (edn/read-string (slurp file)) {})
-                     env slurp)
+     (let [resolved (resolve-config (edn/read-string (slurp (io/resource "config.edn")))
+                                    (if-let [file (get env "ALMA_CONFIG_FILE")]
+                                      (edn/read-string (slurp file)) {})
+                                    env slurp)
+           secret (str/trim-newline (slurp (or (get env "ALMA_AUTH_SECRET_FILE") ".secrets/auth-secret")))
+           _ (when (< (count secret) 32) (throw (ex-info "Invalid authentication secret" {})))
+           _ (when (contains? resolved :auth) (throw (ex-info "Authentication uses explicit local defaults and a protected secret file" {})))
+           host (get-in resolved [:http :host])
+           origin (str "http://" (if (= host "::1") "[::1]" host) ":" (get-in resolved [:http :port]))]
+       (assoc resolved :auth {:csrf-secret secret :origin origin :secure-cookie false}))
      (catch Exception _ (throw (ex-info "Cannot load application configuration; check required settings" {}))))))

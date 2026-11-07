@@ -3,3 +3,13 @@ main { max-width: 64rem; margin: 3rem auto; padding: 2rem; background: white; }
 button { font: inherit; padding: .65rem 1rem; cursor: pointer; }
 button:focus-visible { outline: 3px solid #176b70; outline-offset: 3px; }
 @media (max-width: 45rem) { main { margin: 1rem; padding: 1rem; } }
+
+form { margin: 1.5rem 0; padding: 1rem; border: 1px solid #cbd5d1; border-radius: .4rem; }
+label { display: block; margin: .7rem 0; }
+input:not([type=checkbox]) { display: block; width: min(100%, 28rem); padding: .5rem; box-sizing: border-box; }
+button { margin: .3rem .4rem .3rem 0; }
+nav { display: flex; flex-wrap: wrap; }
+aside { padding: 1rem; border: 2px solid #657e43; overflow-wrap: anywhere; }
+output { display: block; font-family: monospace; user-select: all; }
+[role=alert] { color: #9b1c1c; }
+:focus-visible { outline: 3px solid #245d85; outline-offset: 3px; }
