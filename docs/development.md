@@ -1,12 +1,13 @@
-# Local development — Milestone 1
+# Local development — foundation and authentication
 
 ## Scope
 
 The foundation is a synthetic-data-only modular monolith: a Ring/Jetty backend,
 Reagent/re-frame browser shell, shared Malli health contract, explicit PostgreSQL
-migrations, and automated checks. Local authentication and all donor, financial,
-correspondence, import, audit and export features require later milestone approval.
-The unauthenticated shell and health endpoints bind to loopback. This is not a
+migrations, and automated checks. Approved Milestone 2A adds local accounts,
+sessions, account administration and security audit. Donor, financial,
+correspondence, import, donor audit and export features require later approval.
+The login shell and health endpoints bind to loopback. This is not a
 production deployment. Operations and privacy authority remains `operations.md`.
 
 ## Prerequisites and pinned versions
@@ -38,6 +39,7 @@ npm ci --ignore-scripts
 bb db-up
 
 bb migrate
+bb create-admin # First setup only; interactive terminal required.
 clojure -M:repl
 ```
 
@@ -192,8 +194,9 @@ application exceptions or secret-bearing artifacts.
 
 ## Known boundaries
 
-Authentication, secure sessions, business permissions, domain tables, workbook
-parsing, backups and production logging/monitoring are not implemented here.
+Donor/domain permissions and tables, workbook parsing, backups and production
+logging/monitoring are not implemented here. Account administration is protected
+on the server; staff otherwise have equal future CRM capabilities.
 The SLF4J API currently uses its default no-operation provider; a logging provider
 and redaction policy require an approved follow-up. Startup failures and HTTP
 errors intentionally expose only generic diagnostics. This foundation must not
@@ -297,3 +300,44 @@ The PostgreSQL suite passed (3 tests/19 assertions) against both the Linux
 ownership simulation and a fresh Compose project. Migration and backend HTTP
 smoke checks also passed. Temporary test databases/containers were isolated from
 existing development volumes. Remote Actions must be rerun after pushing.
+
+
+## Milestone 2A authentication
+
+Implementation and verification: [milestone-2-auth.md](milestone-2-auth.md).
+Backend password hashing adds `buddy/buddy-hashers` 2.0.167. Routes use JSON,
+no-store responses, HttpOnly/SameSite cookies, signed CSRF contexts, same-origin
+checks and a 16 KiB request-body limit. Health routes stay public.
+
+`bb init` also creates `.secrets/auth-secret` for signing CSRF contexts. Restart
+after rotating it; open forms need a refresh. Override the path with
+`ALMA_AUTH_SECRET_FILE`; the secret must contain at least 32 characters and cannot
+be embedded in EDN. Use the exact configured origin, normally
+`http://127.0.0.1:3000`; `localhost` does not satisfy a `127.0.0.1` Origin check.
+
+`bb create-admin` refuses once any account exists. It asks for a username and
+display name, then shows a generated temporary password once. At first login,
+replace it with 8–128 Unicode code points including an uppercase letter, decimal
+digit and punctuation/symbol; whitespace is prohibited. Usernames accept 3–64
+ASCII letters/digits plus `.`, `_` and `-`, stored lowercase. Display names are
+editable and usernames are fixed. Use synthetic identities in development.
+
+Account administrators manage accounts in the Polish UI. Deactivation revokes all
+target sessions; resets issue a new one-time temporary password. Own-password
+changes require the current password and rotate the current session, revoking
+all others. Sessions survive backend reloads, with 30-minute idle and eight-hour
+absolute limits. Browsers can restore session cookies after restart; server
+expiry remains authoritative.
+
+Login limits are five attempts per normalized username and 30 per direct client
+address within 15 minutes. Current-password verification has its own five-attempt
+bucket. Successful login clears only the username bucket; the address limit counts
+all login attempts. Backend restart does not reset database-backed limits. No
+forwarded client-address headers are trusted. A database transaction lock serializes
+security mutations; measure before increasing expected load.
+
+The authentication migration adds users, credentials, identity mappings, sessions,
+throttle buckets and append-only-to-runtime security audit events. Runtime has
+explicit privileges separate from migration ownership. Rolling back this migration
+removes authentication data; use only on disposable local/test databases. Security
+audit retention and recovery after loss of all administrators need deployment policy.

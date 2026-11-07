@@ -43,3 +43,14 @@ Generator code/dependencies are not authorized here. Unit tests cover portable f
 ## Next prerequisite
 
 Approve secure inspection arrangements and a field catalog, then approve canonical schema, attribution, matching, report overlap and retention rules before implementing production imports or domain migrations.
+
+
+## Approved authentication subset — Milestone 2A
+
+The authentication-only migration implements `users`, `local_credentials`,
+`external_identities`, `sessions`, `auth_throttle_buckets` and
+`security_audit_events`; see [approved proposal](milestone-2-auth.md). Internal
+UUIDs remain stable across display-name changes and account deactivation. Local
+identity subjects use internal user UUIDs; usernames are lowercase and immutable
+through the application. Password/session secrets are never audit payloads.
+This approval does not finalize any donor, contribution or source-data entity.

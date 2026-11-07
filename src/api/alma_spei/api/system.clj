@@ -6,13 +6,13 @@
 
 (defmethod ig/init-key ::database [_ settings] (db/datasource settings))
 (defmethod ig/halt-key! ::database [_ _ds] nil)
-(defmethod ig/init-key ::handler [_ {:keys [database timeout]}] (routes/handler database timeout))
+(defmethod ig/init-key ::handler [_ {:keys [database timeout auth]}] (routes/handler database timeout auth))
 (defmethod ig/init-key ::server [_ {:keys [handler settings]}] (server/start! handler settings))
 (defmethod ig/halt-key! ::server [_ server] (server/stop! server))
 
 (defn definition [config]
   {::database (:database config)
-   ::handler {:database (ig/ref ::database) :timeout (get-in config [:database :query-timeout])}
+   ::handler {:database (ig/ref ::database) :timeout (get-in config [:database :query-timeout]) :auth (:auth config)}
    ::server {:handler (ig/ref ::handler) :settings (:http config)}})
 
 (defn start! [config]

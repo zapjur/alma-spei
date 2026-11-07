@@ -10,7 +10,7 @@
 
 (defn init! []
   (fs/create-dirs ".secrets" {:posix-file-permissions "rwx------"})
-  (doseq [name ["admin-password" "migration-password" "app-password"]]
+  (doseq [name ["admin-password" "migration-password" "app-password" "auth-secret"]]
     (let [path (fs/path ".secrets" name)]
       (try
         (fs/create-file path {:posix-file-permissions "rw-------"})
@@ -41,6 +41,9 @@
 
 (defn start-api! []
   (process/shell {:extra-env (local-env)} "clojure" "-Srepro" "-M:run"))
+
+(defn create-admin! []
+  (process/shell {:extra-env (local-env)} "clojure" "-Srepro" "-M:create-admin"))
 
 (defn repl! []
   (process/shell {:extra-env (local-env)} "clojure" "-Srepro" "-M:repl"))
@@ -75,4 +78,12 @@
     (when-not (str/includes? (:body (get! "/")) "lang=\"pl\"")
       (throw (ex-info "Polish application HTML is missing" {})))
     (get! "/js/app.js")
+    (let [session (get! "/api/auth/session")
+          data (json/parse-string (:body session))]
+      (when-not (and (nil? (get data "user")) (string? (get data "csrf"))
+                     (= "no-store" (get-in session [:headers "cache-control"])))
+        (throw (ex-info "Unexpected anonymous session response" {}))))
+    (when-not (= 401 (:status (http/get (str base "/api/accounts")
+                                        {:timeout 5000 :throw false :as :string})))
+      (throw (ex-info "Anonymous account access was not rejected" {})))
     (println "HTTP smoke checks passed.")))
