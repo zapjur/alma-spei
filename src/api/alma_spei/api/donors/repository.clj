@@ -35,7 +35,7 @@
    :total (:total (one tx ["SELECT count(*) AS total FROM donations WHERE donor_id=?" id]))})
 
 (defn history [tx id limit offset]
-  (let [events (query tx ["SELECT id,actor_id,occurred_at,action FROM donor_audit_events WHERE donor_id=? ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?" id limit offset])
+  (let [events (query tx ["SELECT e.id,e.actor_id,u.display_name AS actor_name,e.occurred_at,e.action FROM donor_audit_events e JOIN users u ON u.id=e.actor_id WHERE e.donor_id=? ORDER BY e.occurred_at DESC,e.id DESC LIMIT ? OFFSET ?" id limit offset])
         changes (when (seq events)
                   (query tx (into [(str "SELECT event_id,field_name,before_value,after_value FROM donor_audit_changes WHERE event_id IN ("
                                         (str/join "," (repeat (count events) "?")) ") ORDER BY field_name")]

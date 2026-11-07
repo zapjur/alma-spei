@@ -6,6 +6,10 @@
   {:query {:search "" :status "active" :sort-by "name" :sort-direction "asc" :limit 25 :offset 0}
    :draft-search "" :status :loading :donors [] :total 0})
 
+(defn session-failure [db error]
+  (-> db (assoc :donors (assoc initial-state :status :error :error error))
+      (update :donors-sequence (fnil inc 0))))
+
 (defn load-page [db]
   (if-let [state (:donors db)]
     (let [id (inc (get db :donors-sequence 0))]
@@ -58,13 +62,15 @@
 (defn loaded [db [_ id {:keys [data error]}]]
   (if (not= id (get-in db [:donors :request-id]))
     {:db db}
-    (if error
-      {:db (update db :donors assoc :status :error :error error :donors [] :total 0)}
-      (if (and (pos? (get-in db [:donors :query :offset]))
-               (>= (get-in db [:donors :query :offset]) (:total data)))
+    (if (#{:unauthenticated :forbidden} error)
+      {:db (session-failure db error)}
+      (if error
+        {:db (update db :donors assoc :status :error :error error :donors [] :total 0)}
+        (if (and (pos? (get-in db [:donors :query :offset]))
+                 (>= (get-in db [:donors :query :offset]) (:total data)))
         ;; Concurrent deletions can empty a later page. Retry from the beginning.
-        (load-page (assoc-in db [:donors :query :offset] 0))
-        {:db (update db :donors assoc :status :ready :error nil :donors (:donors data) :total (:total data))}))))
+          (load-page (assoc-in db [:donors :query :offset] 0))
+          {:db (update db :donors assoc :status :ready :error nil :donors (:donors data) :total (:total data))})))))
 
 (defn with-db [handler]
   (fn [{:keys [db]} event] (handler db event)))

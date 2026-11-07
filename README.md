@@ -123,3 +123,6 @@ Use synthetic accounts only; see [authentication](docs/milestone-2-auth.md).
 After signing in and changing any temporary password, open **Darczyńcy** to search,
 filter and sort the paginated donor table. An empty database shows an empty list;
 no real donor data should be loaded. See [donor list UI](docs/task-31-donor-list.md).
+Open a donor row to view profile/payment/change history and edit profile fields;
+see [donor card and editing](docs/task-32-donor-details.md). Saves require a current
+version and report conflicts without overwriting newer changes.

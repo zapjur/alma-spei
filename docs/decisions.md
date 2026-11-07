@@ -98,6 +98,15 @@ session states. Request IDs reject late responses and leaving the screen clears
 donor data. See [delivery details](task-31-donor-list.md). No dependency, schema,
 source-processing or production scope is added.
 
+## CONFIRMED — Task #32 execution (2026-11-07)
+
+The user instructed proceeding to #32 on a branch based on #31. Delivery adds the
+donor card/edit form and read-only payment/change-history screens, with shared
+Polish validation, captured edit versions, explicit conflict handling and data
+cleanup. The existing protected history DTO adds the actor's current display name
+alongside its stable actor ID for readable attribution. See
+[delivery details](task-32-donor-details.md). No dependency or schema change.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1

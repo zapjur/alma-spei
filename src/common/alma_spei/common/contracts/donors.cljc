@@ -74,7 +74,7 @@
    [:field [:enum "entity-type" "name" "first-name" "street" "postal-code" "city" "province" "is-active"]]
    [:before audit-value] [:after audit-value]])
 (def audit-event
-  [:map {:closed true} [:id identifier] [:actor-id identifier]
+  [:map {:closed true} [:id identifier] [:actor-id identifier] [:actor-name [:string {:min 1}]]
    [:occurred-at :string] [:action [:enum "create" "update" "archive" "merge"]]
    [:changes [:vector audit-change]]])
 (def history-response

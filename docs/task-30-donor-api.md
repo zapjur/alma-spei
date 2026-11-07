@@ -71,6 +71,8 @@ currency and established receipt date are explicit. Payments sort newest first,
 then UUID, without deduplicating equal facts or deriving payments from aggregates.
 Audit values are typed string/boolean/null values. History batches its field-change
 query across the selected events instead of querying once per event.
+Task #32 subsequently adds `actor-name` (the current staff display label) alongside
+the unchanged stable `actor-id`; see [donor details](task-32-donor-details.md).
 
 Errors: 400 invalid input (Polish field paths/codes/messages, no rejected values),
 401 invalid session, 403 CSRF or mandatory password change, 404 missing/malformed

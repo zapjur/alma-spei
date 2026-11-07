@@ -132,5 +132,7 @@ Profile mutation and audit are one transaction, optimistic edits lock/version-ch
 the donor, and bounded read APIs expose explicit DTOs. See
 [task-30-donor-api.md](task-30-donor-api.md). Task #31 adds the
 [donor list UI](task-31-donor-list.md), with re-frame state, validated reads and
-late-response protection. Donor detail/edit UI, imports, correspondence, reports,
-exports and production processing retain their later delivery gates.
+late-response protection. Task #32 adds [details/editing](task-32-donor-details.md)
+and read-only payment/change histories with captured edit versions and explicit
+conflict handling. Imports, correspondence, reports, exports and production
+processing retain their later delivery gates.

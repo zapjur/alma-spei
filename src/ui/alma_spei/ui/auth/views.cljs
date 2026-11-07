@@ -149,7 +149,7 @@
           (cond
             (or (:password-change-required user) (= screen :password)) [password-form state]
             (and (= screen :accounts) (:administrator user)) [accounts state]
-            (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil)]
+            (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             :else [:section
                    [:h2 "Start"]
                    [:p "Wybierz zadanie, aby rozpocząć pracę."]

@@ -35,3 +35,21 @@ output { display: block; font-family: monospace; user-select: all; }
 .donor-pagination span { flex: 1; text-align: center; }
 button:disabled { cursor: default; opacity: .6; }
 @media (max-width: 45rem) { .donor-table-hint { display: block; } }
+
+.donor-row { cursor: pointer; }
+.donor-row:hover { background: #f0f6f5; }
+.donor-name { padding: 0; margin: 0; border: 0; background: transparent; text-align: left; text-decoration: underline; color: #175d71; }
+.donor-profile { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; }
+.donor-profile dt { font-weight: 600; }
+.donor-profile dd { margin: .25rem 0; overflow-wrap: anywhere; }
+.donor-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: .5rem 1.5rem; }
+.donor-edit-field input, .donor-edit-field select { width: 100%; max-width: none; font: inherit; padding: .5rem; box-sizing: border-box; }
+.donor-field-error { color: #9b1c1c; margin: .4rem 0; }
+[aria-invalid=true] { border: 2px solid #9b1c1c; }
+.donor-payment-table, .donor-change-table { width: 100%; border-collapse: collapse; text-align: left; }
+.donor-payment-table { min-width: 25rem; }
+.donor-payment-table caption, .donor-change-table caption { text-align: left; font-weight: 600; padding: .6rem; }
+.donor-payment-table th, .donor-payment-table td, .donor-change-table th, .donor-change-table td { padding: .6rem; border: 1px solid #cbd5d1; }
+.donor-amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.donor-change-history article { padding: .5rem 0 1rem; border-bottom: 1px solid #cbd5d1; }
+.donor-change-table { table-layout: fixed; overflow-wrap: anywhere; }
