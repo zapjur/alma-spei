@@ -93,10 +93,12 @@ product items need owners before commit attribution can be determined.
 5. **PROPOSED — manual-first review.** Every valid bank row requires a decision
    during this sprint, consistent with PBI-3. Later certain-only auto-linking is a
    separate backlog delivery. Backend validation remains authoritative throughout.
-6. **OPEN — import policy.** Approve invalid-row correction/rejection rules,
-   hash reservation/retry/reimport lifecycle, overlap deduplication, review ownership,
-   staging retention, upload limits and preview expiration. A byte hash alone does
-   not identify repeated payments in different files.
+6. **OPEN — remaining import policy.** #34's file identity and retained-attempt
+   retry design was approved in [its exact proposal](task-34-import-foundation-proposal.md).
+   Invalid-row correction/rejection, payment overlap, review ownership, staging
+   retention, upload limits and preview expiration retain their later gates. A byte
+   hash alone does not identify repeated payments in different files; post-undo
+   retry activation remains part of #39.
 7. **OPEN — operating environment.** `operations.md` controls privacy, backup,
    deployment and real-data gates. Synthetic local implementation does not permit
    real imports. No real canonical bank reconciliation before the master seed.

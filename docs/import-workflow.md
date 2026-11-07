@@ -21,7 +21,10 @@ Upload -> identify source -> fingerprint and duplicate check
   -> import summary + audit + undo metadata
 ```
 
-- File fingerprint alerts on an already processed file; the policy for deliberate reprocessing is OPEN.
+- Ordinary identical-byte submissions are duplicates independent of filename/source.
+  The approved #34 design permits explicit versioned retries of the latest failed
+  attempt while preserving all history. Reimport after undo remains activation-gated
+  on #39; other deliberate reprocessing policies remain OPEN.
 - Staging must not mutate canonical donors or donations.
 - Review resolution must be recorded and revalidated before commit to avoid races/stale previews.
 - Define a bounded upload size and robust parser failure handling after inspecting actual files.
@@ -54,6 +57,15 @@ CONFIRMED: separate master, tax designation and headerless bank adapters share n
 Seed from the master before additional reconciliation. Preserve meaningful transaction detail, keep unresolved annual/monthly observations separate, and approve cross-source overlap rules before summaries. Donor matching, financial deduplication, tax attribution and correspondence grouping are separate decisions. Taxpayer/spouse presence or a shared sender address must not silently merge donors, allocate the same amount twice or create a mailing group.
 
 PROPOSED: record content fingerprint independently of filename and retain a uniqueness/commit guard for batches. A file hash detects identical bytes, not reordered/re-saved files; approved row/payment evidence must detect overlaps while preserving genuine identical payments. Deliberate reprocessing and reimport after undo remain OPEN.
+
+The file identity/attempt portion above is superseded by the approved
+[#34 design](task-34-import-foundation-proposal.md): SHA-256 is UNIQUE on
+`import_files`, with retained `import_batches`, events and immutable staged rows.
+Ordinary duplicate requests do not create another batch. Retry has its own explicit
+authorization/version/eligibility checks and creates a successor instead of resetting
+the failed attempt. File and batch locks plus indexes serialize competing attempts.
+This foundation has no upload endpoint or canonical commit/undo operation. Actual
+payment overlap rules and post-undo activation remain gated, not inferred from hashes.
 
 PROPOSED: commit revalidates approved preview version, row/review decisions, authorization, current entity versions and required pre-import backup evidence; stale state requires a fresh preview/approval. Serialize competing commit/undo eligibility checks in PostgreSQL, then write all canonical changes, audit and compensation metadata in the same transaction. Undo also rechecks latest-batch status and every dependency/version before any compensation; one conflict rolls back the entire undo. Exact locking/version design requires approval and concurrency tests.
 

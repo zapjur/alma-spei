@@ -238,6 +238,16 @@ explicit reload; unconfirmed saves are not automatically retried. See
 editing, imports or production access is added. The synthetic population task #33
 is documented below.
 
+### Task #34 import foundation
+
+`bb migrate` also applies the import identity/attempt/event/staging migration.
+No HTTP upload or import UI is enabled yet. Backend services support bounded SHA-256
+measurement, reservation, safe failure and explicit retry of a latest failed attempt,
+without canonical donor/payment writes. See
+[task-34-import-foundation-proposal.md](task-34-import-foundation-proposal.md).
+Migration/integration tests cover upgrade/reversal, grants, duplicates, concurrent
+reservations/retries, lifecycle/version checks and audit rollback using synthetic data.
+
 ### Task #33 synthetic demo data
 
 Run `bb seed-demo synthetic.admin` after migration/account setup, supplying an
