@@ -2,6 +2,10 @@
 
 Every implementation milestone requires an outline, affected files, schema/API changes, exact dependencies/versions, tests, risks and unanswered questions, followed by explicit user approval. This roadmap is not blanket permission to code. Milestone 1 was explicitly approved on 2026-10-25; all later milestones retain their approval gates.
 
+The [Trello delivery plan](trello-work-plan.md) maps the current board to sequential
+task branches based on `main`, acceptance checks, attribution and unresolved
+dependencies. It is a planning proposal, not implementation approval.
+
 ## Milestone 0 — bootstrap proposal and secure discovery
 
 Present the dependency/version compatibility proposal, source/build/test layout, modules, API conventions, local workflow, migration strategy and first scaffold plan. Clojure CLI and shadow-cljs are proposals; local PostgreSQL may be native or containerized, pending approval. In parallel, arrange authorized workbook inspection and document a sanitized field/semantics catalog; do not put actual personal values in prompts or the repository.
