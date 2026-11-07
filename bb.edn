@@ -12,6 +12,8 @@
            :task (tasks/migrate!)}
   create-admin {:doc "Interactively provision the first account administrator."
                 :task (tasks/create-admin!)}
+  seed-demo {:doc "Load 20 synthetic profiles and 30 payments; requires an existing administrator username."
+             :task (tasks/seed-demo! *command-line-args*)}
   api {:doc "Start the backend on loopback using local runtime credentials."
        :task (tasks/start-api!)}
   repl {:doc "Start REPLy, a local editor nREPL, and backend reload-on-save."

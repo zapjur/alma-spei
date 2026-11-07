@@ -226,7 +226,7 @@ filters, sortable headers and paginated reads. See
 [task-31-donor-list.md](task-31-donor-list.md) for behavior and state/privacy checks.
 An empty migrated development database displays the Polish empty state; no real
 donor data should be loaded. Details/editing is documented under #32 below; the
-demo population command remains #33. Existing server authorization and synthetic-only restrictions
+demo population command is documented under #33 below. Existing server authorization and synthetic-only restrictions
 are unchanged.
 
 ### Task #32 donor card and editing
@@ -236,7 +236,17 @@ or edit approved profile fields. Stale saves preserve the draft and require an
 explicit reload; unconfirmed saves are not automatically retried. See
 [task-32-donor-details.md](task-32-donor-details.md). No donor creation UI, payment
 editing, imports or production access is added. The synthetic population task #33
-is still separate.
+is documented below.
+
+### Task #33 synthetic demo data
+
+Run `bb seed-demo synthetic.admin` after migration/account setup, supplying an
+existing active administrator username. The developer-only command adds 20 clearly
+synthetic profiles and 30 payments with audit in one transaction. It is repeat-safe,
+rejects later edits/partial seeds, preserves unrelated data and creates no login.
+Only the named local development database or generated isolated test databases
+are permitted. See [task-33-synthetic-data.md](task-33-synthetic-data.md) for exact
+counts, target guards, CLI output and failure behavior.
 
 ## Verification evidence (2026-10-25)
 

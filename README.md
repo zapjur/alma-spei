@@ -126,3 +126,9 @@ no real donor data should be loaded. See [donor list UI](docs/task-31-donor-list
 Open a donor row to view profile/payment/change history and edit profile fields;
 see [donor card and editing](docs/task-32-donor-details.md). Saves require a current
 version and report conflicts without overwriting newer changes.
+
+To add a synthetic demonstration dataset after migrations and administrator setup,
+run `bb seed-demo synthetic.admin` with your existing synthetic administrator's
+username. It loads 20 profiles and 30 payments transactionally; unchanged repeats
+add nothing, and edited seed records are preserved with a conflict explanation.
+See [synthetic demo data](docs/task-33-synthetic-data.md). No real workbook data is used.

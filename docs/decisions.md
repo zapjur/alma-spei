@@ -107,6 +107,15 @@ cleanup. The existing protected history DTO adds the actor's current display nam
 alongside its stable actor ID for readable attribution. See
 [delivery details](task-32-donor-details.md). No dependency or schema change.
 
+## CONFIRMED — Task #33 execution (2026-11-07)
+
+The user instructed continuing to #33 on a branch based on #32. Delivery adds a
+developer-only command for the planned deterministic 20-profile/30-payment synthetic
+dataset, existing selected actor attribution, local target checks, atomic creation
+audit and repeat/conflict protection. See [task-33-synthetic-data.md](task-33-synthetic-data.md).
+No account, dependency, migration, workbook mapping, production access or general
+seed-reset mechanism is introduced.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1
