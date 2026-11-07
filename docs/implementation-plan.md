@@ -6,6 +6,11 @@ The [Trello delivery plan](trello-work-plan.md) maps the current board to sequen
 task branches based on `main`, acceptance checks, attribution and unresolved
 dependencies. It is a planning proposal, not implementation approval.
 
+Task #28's exact schema was subsequently approved and implemented. The user then
+instructed pushing #28 and proceeding to #29; shared contract delivery is recorded
+in [task-29-donor-contracts.md](task-29-donor-contracts.md). These steps do not approve
+new parser dependencies or real-data/production processing.
+
 ## Milestone 0 — bootstrap proposal and secure discovery
 
 Present the dependency/version compatibility proposal, source/build/test layout, modules, API conventions, local workflow, migration strategy and first scaffold plan. Clojure CLI and shadow-cljs are proposals; local PostgreSQL may be native or containerized, pending approval. In parallel, arrange authorized workbook inspection and document a sanitized field/semantics catalog; do not put actual personal values in prompts or the repository.

@@ -71,6 +71,15 @@ protected field-level before/after audit, migration grants and synthetic integra
 tests. No new dependency is required. Historical aggregate meanings, tax attribution,
 matching, source adapter contracts, real data processing and production remain gated.
 
+## CONFIRMED — Task #29 execution (2026-11-07)
+
+The user instructed pushing the completed #28 branch and proceeding to #29 under
+the Trello plan. Shared manual-entry contracts require type, display name and
+locality, validate supplied Polish postcodes, reject unknown fields and return
+Polish errors. Nullable read addresses remain distinct from manual form policy;
+international editing/import policy is not inferred. See
+[the delivery notes](task-29-donor-contracts.md). No dependencies or migrations added.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1
