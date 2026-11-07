@@ -89,6 +89,15 @@ profile and omitted optional values clear to null; no-op edits retain their vers
 See [delivery details](task-30-donor-api.md). No dependency/schema changes or
 production/source-processing approval is inferred.
 
+## CONFIRMED — Task #31 execution (2026-11-07)
+
+The user instructed proceeding to #31, the donor-list UI on a branch based on #30.
+Delivery includes Polish name/type/locality/status display, submitted search,
+immediate filters, sortable headers, bounded pagination and explicit loading/error/
+session states. Request IDs reject late responses and leaving the screen clears
+donor data. See [delivery details](task-31-donor-list.md). No dependency, schema,
+source-processing or production scope is added.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1

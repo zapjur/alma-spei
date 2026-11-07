@@ -61,7 +61,7 @@ GitHub account linkage is not independently verified.
 | Key | Name for attribution | Email |
 | --- | --- | --- |
 | P | Piotr Zapiór | Existing repository Git identity; verify before committing |
-| S | stas | User-supplied email available in session; confirm preferred author name before first commit |
+| S | stas | User-supplied email available in session; use the user-confirmed Trello name |
 | J | Jakub Płoskonka | User-supplied email available in session |
 | W | Paweł Piwowarczyk | User-supplied email available in session |
 | A | Antoni Lenart | User-supplied email available in session |

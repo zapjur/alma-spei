@@ -119,3 +119,7 @@ Temporary passwords appear once for secure handover. Usernames cannot change.
 Sessions expire after 30 idle minutes or eight hours total. `bb create-admin`
 requires an interactive terminal and refuses once any account exists.
 Use synthetic accounts only; see [authentication](docs/milestone-2-auth.md).
+
+After signing in and changing any temporary password, open **Darczyńcy** to search,
+filter and sort the paginated donor table. An empty database shows an empty list;
+no real donor data should be loaded. See [donor list UI](docs/task-31-donor-list.md).

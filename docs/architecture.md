@@ -130,5 +130,7 @@ donor REST API are implemented. HTTP, domain services, JDBC persistence and
 field-audit writes remain separate backend modules; shared DTOs stay in common.
 Profile mutation and audit are one transaction, optimistic edits lock/version-check
 the donor, and bounded read APIs expose explicit DTOs. See
-[task-30-donor-api.md](task-30-donor-api.md). Donor frontend, imports, correspondence,
-reports, exports and production processing retain their later delivery gates.
+[task-30-donor-api.md](task-30-donor-api.md). Task #31 adds the
+[donor list UI](task-31-donor-list.md), with re-frame state, validated reads and
+late-response protection. Donor detail/edit UI, imports, correspondence, reports,
+exports and production processing retain their later delivery gates.
