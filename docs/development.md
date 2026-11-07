@@ -397,3 +397,37 @@ throttle buckets and append-only-to-runtime security audit events. Runtime has
 explicit privileges separate from migration ownership. Rolling back this migration
 removes authentication data; use only on disposable local/test databases. Security
 audit retention and recovery after loss of all administrators need deployment policy.
+
+## Bank upload and parser (#35)
+
+See the approved [format, limits and API contract](task-35-bank-parser-proposal.md).
+No additional migration is required beyond #34. Uploads remain synthetic-only;
+there is no upload screen until #36. A signed-in staff session with a changed
+password, matching Origin and session-bound CSRF header/cookie is required.
+
+POST `/api/imports/upload` accepts multipart `file`, `source=bank`, and `separator`
+(`;` or `,`) for CSV. XLSX accepts the documented four-column headerless structure.
+Limits are 5 MiB file / 6 MiB body, 50,000 row-index/record ceiling, 4 columns,
+4,096 characters/cell, 128 ZIP entries, 8 MiB expanded/entry and 32 MiB total.
+Only one upload parser runs per process; another request receives 503. Non-upload
+JSON forms keep their 16 KiB limit. GET `/api/imports/:id/rows?limit=25&offset=0`
+returns persisted validation pages (maximum limit 100).
+
+A parse failure response includes batch-id and, when successfully recorded, failed
+batch/version. Retry by uploading the same bytes with `retry-batch-id`, `version`
+and `confirmed=true` alongside normal fields. A changed filename cannot bypass
+ordinary duplicate detection; successful retry retains original metadata. Never
+use real workbook content in curl commands, terminal output or automated tests.
+
+Temporary files/directories use owner-only permissions and are deleted after
+success/failure. A hard process kill may leave private files; crash cleanup and
+production storage/retention need operational approval. Startup recovery requires
+a reachable database and assumes no other application process is handling imports.
+
+Task 35 verification on 2026-11-08: `bb check` passed on checksum-verified Temurin
+25.0.5+8, including the optimized UI build, reload test (1 test / 10 assertions)
+and JVM/JavaScript suites. After the final multipart-only body-limit regression,
+lint/format and JVM tests were rerun: 40 tests / 333 assertions, all passing.
+JavaScript tests: 42 / 270. PostgreSQL/real HTTP integration tests: 48 / 409.
+The local Node executable is 23.11.0; this run does not independently verify the
+repository's pinned Node 24.20.0. No new Node dependency was installed.

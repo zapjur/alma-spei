@@ -48,3 +48,28 @@
    :failure-code "Nieprawidłowa przyczyna zakończenia importu."
    :confirmed "Potwierdź ponowne przetwarzanie pliku."})
 (defn errors [schema value] (validation/errors schema value messages))
+
+(def source-text [:string {:max 4096}])
+(def row-payload
+  [:map {:closed true}
+   [:date [:maybe :string]] [:sender source-text] [:description source-text]
+   [:amount [:maybe :string]] [:currency :nil]
+   [:source-date source-text] [:source-amount source-text]])
+(def row-messages
+  {"invalid-date" "Nieprawidłowa data transakcji."
+   "missing-sender" "Brakuje danych nadawcy."
+   "invalid-sender" "Dane nadawcy muszą być tekstem."
+   "invalid-description" "Opis transakcji musi być tekstem."
+   "invalid-amount" "Nieprawidłowa kwota transakcji."})
+(def staged-row
+  [:map {:closed true}
+   [:worksheet-index positive-integer] [:row-number positive-integer]
+   [:payload row-payload] [:validation-state [:enum "valid" "invalid"]]
+   [:errors [:vector [:map {:closed true} [:code :string] [:message :string]]]]])
+(def page-query [:map {:closed true} [:limit {:optional true} [:int {:min 1 :max 100}]]
+                 [:offset {:optional true} row-count]])
+(def rows-response [:map {:closed true} [:batch batch] [:rows [:vector staged-row]]
+                    [:total row-count] [:limit positive-integer] [:offset row-count]])
+(def upload-response [:map {:closed true} [:batch batch] [:rows [:vector staged-row]]
+                      [:total row-count] [:limit positive-integer] [:offset row-count]
+                      [:skipped-empty-rows row-count]])

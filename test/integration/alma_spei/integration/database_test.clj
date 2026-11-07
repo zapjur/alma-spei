@@ -44,6 +44,13 @@
 
 (use-fixtures :each isolated-database)
 
+(defn rollback-latest! [cfg]
+  ;; Migratus orders rollback by millisecond applied timestamps without an ID tie-break.
+  ;; These disposable tests need deterministic reverse migration order.
+  (when-let [id (:id (first (jdbc/execute! (get-in cfg [:db :datasource])
+                                           ["SELECT max(id) AS id FROM schema_migrations WHERE id > 0"])))]
+    (migratus/down cfg id)))
+
 (deftest migrations-and-privileges
   (let [{:keys [migrator runtime]} *database*
         cfg (migrations/migration-config migrator)]
@@ -68,7 +75,7 @@
                    (jdbc/execute! tx ["INSERT INTO transaction_probe VALUES (?)" 2])
                    (throw (ex-info "Synthetic failure" {})))))
     (is (= [1] (map :transaction_probe/id (jdbc/execute! migrator ["SELECT id FROM transaction_probe"]))))
-    (dotimes [_ 4] (migratus/rollback cfg))
+    (dotimes [_ 4] (rollback-latest! cfg))
     (is (false? (db/ready? runtime 1)))
     (migratus/migrate cfg)
     (is (db/ready? runtime 1))))
@@ -96,5 +103,5 @@
           (is (= 503 (status port "/api/health/ready")))
           (migratus/migrate (migrations/migration-config (:migrator *database*)))
           (is (= 200 (status port "/api/health/ready")))
-          (dotimes [_ 4] (migratus/rollback (migrations/migration-config (:migrator *database*))))
+          (dotimes [_ 4] (rollback-latest! (migrations/migration-config (:migrator *database*))))
           (finally (system/stop! running)))))))
