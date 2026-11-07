@@ -52,6 +52,35 @@
    [:donors [:vector donor]]
    [:total [:int {:min 0 :max 9007199254740991}]]])
 
+(def page-query
+  [:map {:closed true}
+   [:limit {:optional true} [:int {:min 1 :max 100}]]
+   [:offset {:optional true} [:int {:min 0 :max 9007199254740991}]]])
+
+(def donation
+  [:map {:closed true}
+   [:id identifier]
+   [:amount [:re #"^-?[0-9]{1,16}\.[0-9]{4}$"]]
+   [:currency [:re #"^[A-Z]{3}$"]]
+   [:received-on [:re #"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"]]])
+
+(def detail-response
+  [:map {:closed true} [:donor donor] [:donations [:vector donation]]
+   [:donations-total [:int {:min 0 :max 9007199254740991}]]])
+
+(def audit-value [:maybe [:or :string :boolean]])
+(def audit-change
+  [:map {:closed true}
+   [:field [:enum "entity-type" "name" "first-name" "street" "postal-code" "city" "province" "is-active"]]
+   [:before audit-value] [:after audit-value]])
+(def audit-event
+  [:map {:closed true} [:id identifier] [:actor-id identifier]
+   [:occurred-at :string] [:action [:enum "create" "update" "archive" "merge"]]
+   [:changes [:vector audit-change]]])
+(def history-response
+  [:map {:closed true} [:events [:vector audit-event]]
+   [:total [:int {:min 0 :max 9007199254740991}]]])
+
 (def field-messages
   {:entity-type "Wybierz osobę, firmę lub organizację."
    :name "Podaj nazwę lub imię i nazwisko darczyńcy."

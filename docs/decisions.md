@@ -80,6 +80,15 @@ Polish errors. Nullable read addresses remain distinct from manual form policy;
 international editing/import policy is not inferred. See
 [the delivery notes](task-29-donor-contracts.md). No dependencies or migrations added.
 
+## CONFIRMED — Task #30 execution (2026-11-07)
+
+The user instructed proceeding to #30 on a branch based on #29. Delivery follows
+the planned authorized donor REST API, parameterized persistence, paginated reads,
+version-conflict handling and transactional field audit. PUT replaces the editable
+profile and omitted optional values clear to null; no-op edits retain their version.
+See [delivery details](task-30-donor-api.md). No dependency/schema changes or
+production/source-processing approval is inferred.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1

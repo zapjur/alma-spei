@@ -62,3 +62,11 @@
          (donors/errors donors/create-donor (assoc profile :untrusted "SYNTHETIC-REJECTED"))))
   (is (= [{:field [] :code :invalid :message "Nieprawidłowe dane formularza."}]
          (donors/errors donors/create-donor nil))))
+
+(deftest financial-read-values-remain-exact-strings
+  (let [payment {:id "00000000-0000-0000-0000-000000000001"
+                 :amount "9999999999999999.9999" :currency "PLN" :received-on "2026-01-02"}]
+    (is (validation/valid? donors/donation payment))
+    (is (not (validation/valid? donors/donation (assoc payment :amount 123.45))))
+    (is (not (validation/valid? donors/donation (assoc payment :amount "NaN"))))
+    (is (not (validation/valid? donors/donation (assoc payment :amount "123.45678"))))))

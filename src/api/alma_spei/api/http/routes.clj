@@ -1,6 +1,7 @@
 (ns alma-spei.api.http.routes
   (:require [alma-spei.api.http.health :as health]
             [alma-spei.api.http.auth :as auth]
+            [alma-spei.api.http.donors :as donors]
             [alma-spei.api.http.middleware :as middleware]
             [alma-spei.common.contracts.health :as contract]
             [muuntaja.core :as muuntaja]
@@ -22,7 +23,7 @@
                 ["/api/health/ready" {:get {:handler (health/readiness ds timeout)
                                             :responses {200 {:body contract/response}
                                                         503 {:body contract/response}}}}]]
-               (auth/routes ds settings))
+               (concat (auth/routes ds settings) (donors/routes ds settings)))
          {:data {:muuntaja muuntaja/instance
                  :coercion coercion/coercion
                  :middleware [format/format-middleware
