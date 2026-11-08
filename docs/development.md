@@ -442,3 +442,23 @@ No donor or payment changes occur during this flow. Known failed attempts requir
 same-file selection and explicit retry confirmation; an uncertain response is never
 automatically retried. Navigation/logout clears the local report and file input.
 See [delivery and verification](task-36-import-upload.md).
+
+## Review queue and manual comparison (#37)
+
+**Weryfikacja importów** lists persisted bank batches awaiting review. Open a batch
+from the queue or follow **Przejdź do weryfikacji** on its upload report. All rows,
+including invalid rows, remain accessible. Submit a name query and choose **Porównaj**
+to display the selected active/archived donor profile beside the unchanged source
+text. No automatic name/address interpretation or decision save occurs.
+
+GET `/api/imports/review?limit=25&offset=0` returns a bounded review queue; GET
+`/api/imports/:id` returns current bank batch metadata; GET
+`/api/imports/:id/rows/:worksheet/:row/comparison?donor-id=...` returns an authorized
+source/profile comparison. Existing rows and donor-search APIs supply the other
+pages. New endpoints require a staff session with completed password change and
+expose no payment history or credentials. No new migration or dependency.
+
+The UUID/page fragment restores the batch after reload. Search/selection is
+transient; rows/progress are reread from PostgreSQL. Newly staged imports show zero
+reviewed rows until #38 implements attributed decisions. See
+[task 37 delivery and verification](task-37-review-queue.md). Use synthetic data only.

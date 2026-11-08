@@ -141,7 +141,9 @@
                   [summary state]
                   (when (= :loading status) [:p {:role "status"} "Pobieranie raportu…"])
                   [report-table state] [pagination state]
-                  [:button {:type "button" :disabled (= :loading status) :on-click #(rf/dispatch [:imports/reload])} "Odśwież raport"]]
+                  [:button {:type "button" :disabled (= :loading status) :on-click #(rf/dispatch [:imports/reload])} "Odśwież raport"]
+                  (when (= "review" (:state batch))
+                    [:a {:href (str "#review/" (:id batch) "/0") :class "review-open"} "Przejdź do weryfikacji"])]
          (= :uncertain status) [:p "Możesz sprawdzić znany import albo rozpocząć nowe przesyłanie. Ponowne przesłanie zapisanych już danych zostanie rozpoznane jako duplikat."]
          :else [:<>
                 (when batch [summary state])

@@ -8,7 +8,7 @@
             alma-spei.common.imports-test alma-spei.api.fingerprint-test alma-spei.api.bank-test]
    "integration" '[alma-spei.integration.database-test alma-spei.integration.auth-test
                    alma-spei.integration.donors-test alma-spei.integration.donor-api-test
-                   alma-spei.integration.demo-test alma-spei.integration.imports-test alma-spei.integration.bank-upload-test]})
+                   alma-spei.integration.demo-test alma-spei.integration.imports-test alma-spei.integration.bank-upload-test alma-spei.integration.review-test]})
 
 (defn -main [& [suite]]
   (let [namespaces (get suites suite)]

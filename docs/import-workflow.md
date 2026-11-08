@@ -89,3 +89,13 @@ writes, financial deduplication, review decisions or commit/undo are implemented
 by this task. The [#36 upload screen](task-36-import-upload.md) consumes these APIs, displays
 all validation rows and supports explicit failed-attempt retry. Matching, human
 review decisions and final approval are separate later steps.
+
+## Delivered task 37 — persisted review reads
+
+The [review queue](task-37-review-queue.md) provides authorized bank-batch discovery,
+current metadata and source/profile comparison. The Polish UI resumes a batch/page
+from a UUID-only link, includes invalid rows and shows persisted reviewed/valid/
+invalid counts. Manually submitted donor search and explicit profile comparison do
+not create links, review decisions or canonical changes. Original combined sender
+text is not decomposed or treated as identity evidence. The attributed decision/
+preview service remains #38; comparison is not an approval step.

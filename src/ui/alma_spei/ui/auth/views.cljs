@@ -2,6 +2,8 @@
   (:require [alma-spei.common.contracts.auth :as contract]
             [alma-spei.ui.donors.views :as donors]
             [alma-spei.ui.imports.views :as imports]
+            [alma-spei.ui.imports.review-views :as review]
+            [alma-spei.ui.imports.review-location :as review-location]
             [reagent.core :as r]))
 
 (defn result-state [state action result]
@@ -14,7 +16,11 @@
                 (and own-account? (= action :reset)) (assoc :user nil :users nil :screen :home)
                 (= action :accounts) (assoc :users (:users result))
                 (:temporary-password result) (assoc :temporary-password (:temporary-password result))
-                (#{:login :password :logout} action) (assoc :screen :home :users nil))]
+                (#{:login :password :logout} action) (assoc :screen :home :users nil)
+                (= action :logout) (assoc :review-route nil))
+        state (cond-> state
+                (and (#{:session :login :password} action) (:review-route state) (:user state)
+                     (not (get-in state [:user :password-change-required]))) (assoc :screen :review))]
     (if (and (:users state) (#{:create :edit :reset} action))
       (update state :users
               (fn [users]
@@ -118,8 +124,25 @@
     [:button {:disabled (:busy @state)} "Utwórz konto"]]
    (for [user (:users @state)] ^{:key (:id user)} [edit-form state user])])
 
+(defn navigate! [state screen]
+  (review-location/clear!)
+  (swap! state assoc :screen screen :temporary-password nil :review-route nil))
+(defn review-route-state [state route]
+  (let [revision (inc (get state :review-route-sequence 0))]
+    (assoc state :screen :review :temporary-password nil :review-route-sequence revision
+           :review-route (assoc route :revision revision))))
+(defn open-review! [state]
+  (review-location/write! {:offset 0})
+  (swap! state review-route-state {:offset 0}))
+
 (defn panel []
-  (r/with-let [state (r/atom {:busy true :screen :home})
+  (r/with-let [route (review-location/parse (.-hash js/location))
+               state (r/atom {:busy true :screen (if route :review :home) :review-route route})
+               hash-handler (fn [_]
+                              (if-let [route (review-location/parse (.-hash js/location))]
+                                (swap! state review-route-state route)
+                                (when (= :review (:screen @state)) (navigate! state :home))))
+               _ (.addEventListener js/window "hashchange" hash-handler)
                _ (request! state :session "/api/auth/session" "GET" nil)]
     (let [{:keys [user csrf screen busy error temporary-password]} @state]
       [:section {:aria-busy busy}
@@ -139,25 +162,28 @@
           [:nav
            (when-not (:password-change-required user)
              [:<>
-              [:button {:disabled busy :on-click #(swap! state assoc :screen :home :temporary-password nil)} "Start"]
-              [:button {:disabled busy :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Darczyńcy"]
-              [:button {:disabled busy :on-click #(swap! state assoc :screen :imports :temporary-password nil)} "Import przelewów"]
-              [:button {:disabled busy :on-click #(swap! state assoc :screen :password :temporary-password nil)} "Zmień hasło"]
+              [:button {:disabled busy :on-click #(navigate! state :home)} "Start"]
+              [:button {:disabled busy :on-click #(navigate! state :donors)} "Darczyńcy"]
+              [:button {:disabled busy :on-click #(navigate! state :imports)} "Import przelewów"]
+              [:button {:disabled busy :on-click #(open-review! state)} "Weryfikacja importów"]
+              [:button {:disabled busy :on-click #(navigate! state :password)} "Zmień hasło"]
               (when (:administrator user)
                 [:button {:disabled busy
-                          :on-click #(do (swap! state assoc :screen :accounts :temporary-password nil)
+                          :on-click #(do (navigate! state :accounts)
                                          (request! state :accounts "/api/accounts" "GET" nil))} "Konta użytkowników"])])
-           [:button {:disabled busy :on-click #(request! state :logout "/api/auth/logout" "POST" {})} "Wyloguj się"]]
+           [:button {:disabled busy :on-click #(do (review-location/clear!) (request! state :logout "/api/auth/logout" "POST" {}))} "Wyloguj się"]]
           (cond
             (or (:password-change-required user) (= screen :password)) [password-form state]
             (and (= screen :accounts) (:administrator user)) [accounts state]
+            (= screen :review) [review/panel #(request! state :session "/api/auth/session" "GET" nil) (:review-route @state)]
             (= screen :imports) [imports/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             :else [:section
                    [:h2 "Start"]
                    [:p "Wybierz zadanie, aby rozpocząć pracę."]
                    [:button {:type "button" :disabled busy
-                             :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Przejdź do darczyńców"]
+                             :on-click #(navigate! state :donors)} "Przejdź do darczyńców"]
                    [:button {:type "button" :disabled busy
-                             :on-click #(swap! state assoc :screen :imports :temporary-password nil)} "Prześlij plik bankowy"]])])])
-    (finally (reset! state {}))))
+                             :on-click #(navigate! state :imports)} "Prześlij plik bankowy"]
+                   [:button {:type "button" :disabled busy :on-click #(open-review! state)} "Otwórz kolejkę weryfikacji"]])])])
+    (finally (.removeEventListener js/window "hashchange" hash-handler) (reset! state {}))))

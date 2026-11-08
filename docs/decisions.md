@@ -243,3 +243,14 @@ needed. Production formats, currency, financial overlap/payment identity, negati
 payment treatment, retention and operational containment remain OPEN. The delivered
 startup recovery assumes a single application process, with no rolling multi-instance
 deployment claim. No approval of real personal-data processing is implied.
+
+## CONFIRMED — task 37 execution
+
+The user instructed proceeding with the planned persisted review queue after #36.
+The [delivery](task-37-review-queue.md) adds protected bank-batch/comparison reads,
+manual donor search/preview and URL-based batch/page resumption. Server counts own
+progress; browsing writes no decisions or canonical changes. Existing approved
+source/profile fields are reused without inferring sender structure or matching
+rules. No dependency or schema change. Attributed decision writes, multi-user write
+conflicts, preview/approval and unresolved financial policy remain #38 and later
+approval packages.

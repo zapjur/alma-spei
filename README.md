@@ -139,3 +139,7 @@ Open **Import przelewów** to upload a synthetic bank file and inspect its paged
 validation report; see [the upload screen](docs/task-36-import-upload.md). Upload
 staging changes no donors or payments and does not establish currency or financial
 deduplication rules.
+
+Open **Weryfikacja importów** to reopen a staged bank batch, browse every row, and
+manually search/compare donor profiles side by side. The batch/page link survives
+reload. Browsing saves no linkage decision; see [the review queue](docs/task-37-review-queue.md).

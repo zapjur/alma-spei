@@ -47,3 +47,11 @@
 (defn staged-page [tx id limit offset]
   (query tx ["SELECT worksheet_index,row_number,normalized_payload,validation_state,validation_codes FROM staged_rows WHERE batch_id=? ORDER BY worksheet_index,row_number LIMIT ? OFFSET ?"
              id limit offset]))
+
+(defn review-batches [tx limit offset]
+  {:batches (query tx ["SELECT b.*,f.byte_count FROM import_batches b JOIN import_files f ON f.id=b.file_id WHERE b.source_type='bank' AND b.state='review' ORDER BY b.created_at DESC,b.id DESC LIMIT ? OFFSET ?" limit offset])
+   :total (:total (one tx ["SELECT count(*) AS total FROM import_batches WHERE source_type='bank' AND state='review'"]))})
+
+(defn staged-row [tx id worksheet row]
+  (one tx ["SELECT worksheet_index,row_number,normalized_payload,validation_state,validation_codes FROM staged_rows WHERE batch_id=? AND worksheet_index=? AND row_number=?"
+           id worksheet row]))

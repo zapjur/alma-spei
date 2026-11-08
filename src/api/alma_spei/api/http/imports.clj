@@ -5,6 +5,8 @@
             [alma-spei.api.imports.fingerprint :as fingerprint]
             [alma-spei.api.imports.limits :as limits]
             [alma-spei.api.imports.service :as service]
+            [alma-spei.api.imports.review :as review]
+            [alma-spei.common.contracts.review :as review-contract]
             [alma-spei.common.contracts.imports :as contract]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -113,6 +115,29 @@
           (if status {:status status :body (cond-> {:code code :message public-message} errors (assoc :errors errors) batch-id (assoc :batch-id batch-id) batch (assoc :batch batch))}
               (throw e)))))))
 
+(defn positive-path [value]
+  (when (and (string? value) (re-matches #"[1-9][0-9]{0,14}" value)) (Long/parseLong value)))
+(defn review-endpoint [ds action]
+  (wrap-params
+   (fn [request]
+     (try
+       (let [params (:query-params request)
+             input (if (= action :comparison)
+                     (into {} (map (fn [[key value]] [(if (= key "donor-id") :donor-id :unknown) value]) params))
+                     (page-input params))
+             path (:path-params request)]
+         {:status 200 :body (review/execute! ds (get-in request [:cookies "alma-session" :value]) action (:id path)
+                                             {:worksheet (positive-path (:worksheet path)) :row (positive-path (:row path))} input)})
+       (catch clojure.lang.ExceptionInfo e
+         (let [{:keys [status code public-message errors]} (ex-data e)]
+           (if status {:status status :body (cond-> {:code code :message public-message} errors (assoc :errors errors))}
+               (throw e))))))))
+
 (defn routes [ds settings]
-  [["/api/imports/upload" {:post {:handler (endpoint ds settings true) :responses {201 {:body contract/upload-response}}}}]
+  ;; Explicit literal-before-UUID ordering resolves these intentional overlaps.
+  ;; Other router conflict checks remain enabled.
+  [["/api/imports/review" {:conflicting true :get {:handler (review-endpoint ds :queue) :responses {200 {:body review-contract/queue-response}}}}]
+   ["/api/imports/upload" {:conflicting true :post {:handler (endpoint ds settings true) :responses {201 {:body contract/upload-response}}}}]
+   ["/api/imports/:id" {:conflicting true :get {:handler (review-endpoint ds :batch) :responses {200 {:body contract/batch-response}}}}]
+   ["/api/imports/:id/rows/:worksheet/:row/comparison" {:get {:handler (review-endpoint ds :comparison) :responses {200 {:body review-contract/comparison-response}}}}]
    ["/api/imports/:id/rows" {:get {:handler (wrap-params (endpoint ds settings false)) :responses {200 {:body contract/rows-response}}}}]])
