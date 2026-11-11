@@ -52,6 +52,25 @@ Updated 2026-10-25 from stakeholder instructions. CONFIRMED denotes explicit req
 
 For each implementation milestone, document outline, affected files, schema/API changes, dependencies/versions, tests, risks and questions, then obtain explicit approval. Record date, approver, rationale and tradeoffs when accepting a proposal. Do not mark proposals accepted merely because they appear in this repository.
 
+## CONFIRMED — Trello execution workflow (2026-11-07)
+
+The user approved proceeding with the [Trello delivery plan](trello-work-plan.md):
+sequential tasks, one branch per task stacked from updated `main`, and attribution
+to assigned contributors using user-confirmed Git identities and assignment
+corrections. Authentication is already merged. Missing discovery evidence, exact
+domain schema and new parser dependencies retain their explicit gates; no source
+field semantics or production permissions are inferred from this approval.
+
+## CONFIRMED — Task #28 domain schema (2026-11-07)
+
+After user-directed local structural inspection, the user explicitly approved
+[the exact donor/payment/audit proposal](task-28-schema-proposal.md). Approval
+covers three donor types, nullable address storage, independent exact payment
+facts with explicit currency/date, archive/version state, stable user attribution,
+protected field-level before/after audit, migration grants and synthetic integration
+tests. No new dependency is required. Historical aggregate meanings, tax attribution,
+matching, source adapter contracts, real data processing and production remain gated.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1

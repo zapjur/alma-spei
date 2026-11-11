@@ -4,7 +4,13 @@
 
 Donors may be individuals, businesses or organizations. Donor identity, financial attribution and correspondence grouping are separate. Preserve meaningful transaction-level detail and source provenance. Routine deletion archives donors. No final columns, identifiers, mapping or thresholds may be selected before authorized inspection of actual spreadsheets.
 
-The three files are not in the repository. Their stakeholder-described fields are cataloged in [requirements](requirements.md); these are not inspected schemas. In particular, historical yearly fields may be indicators or amounts, and tax/spouse attribution remains unresolved.
+The three files remain outside the repository. A user-directed local structural
+inspection is recorded in [source-inspection.md](source-inspection.md), with an
+exact initial schema proposal in [task-28-schema-proposal.md](task-28-schema-proposal.md).
+This evidence does not resolve historical yearly meanings or tax/spouse attribution;
+those semantics remain OPEN.
+The user subsequently approved the exact #28 proposal; the implementation is
+described below. The unresolved source semantics remain OPEN.
 
 ## Candidate entities (PROPOSED)
 
@@ -54,3 +60,16 @@ UUIDs remain stable across display-name changes and account deactivation. Local
 identity subjects use internal user UUIDs; usernames are lowercase and immutable
 through the application. Password/session secrets are never audit payloads.
 This approval does not finalize any donor, contribution or source-data entity.
+
+## Approved initial domain subset — Task #28
+
+Migration `202611070001-donors` implements the
+[approved schema](task-28-schema-proposal.md): separate `donors` and `donations`,
+plus append-only-to-runtime `donor_audit_events`/`donor_audit_changes`. Name/address
+equality is not identity. Profiles support individual, business and organization
+types, soft archiving, versions and stable user references. Payments require exact
+numeric amounts, explicit currency and established receipt dates; no uniqueness
+rule collapses genuine equal payments. JSONB before/after audit values are protected
+application data, never diagnostic log payloads. Service-level authoritative
+validation and transactional audit writes are #29/#30 work, not database triggers.
+Import/provenance/compensation metadata follows under #34 before imports are enabled.
