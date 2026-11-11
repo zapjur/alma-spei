@@ -71,5 +71,6 @@ types, soft archiving, versions and stable user references. Payments require exa
 numeric amounts, explicit currency and established receipt dates; no uniqueness
 rule collapses genuine equal payments. JSONB before/after audit values are protected
 application data, never diagnostic log payloads. Service-level authoritative
-validation and transactional audit writes are #29/#30 work, not database triggers.
+validation and transactional audit writes are implemented under #29/#30, not
+database triggers; see [the donor API](task-30-donor-api.md).
 Import/provenance/compensation metadata follows under #34 before imports are enabled.

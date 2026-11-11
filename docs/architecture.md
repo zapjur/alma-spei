@@ -122,3 +122,13 @@ in PostgreSQL. Required-password-change sessions cannot administer accounts.
 The Reagent account UI retains secrets transiently and uses tested pure state
 transitions. External provider implementation, production topology, donor models
 and import workflows remain deferred or subject to their existing approval gates.
+
+## Donor API implementation — Tasks #28–30
+
+The initial donor/payment/audit schema, portable donor contracts and authorized
+donor REST API are implemented. HTTP, domain services, JDBC persistence and
+field-audit writes remain separate backend modules; shared DTOs stay in common.
+Profile mutation and audit are one transaction, optimistic edits lock/version-check
+the donor, and bounded read APIs expose explicit DTOs. See
+[task-30-donor-api.md](task-30-donor-api.md). Donor frontend, imports, correspondence,
+reports, exports and production processing retain their later delivery gates.

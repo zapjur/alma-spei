@@ -194,7 +194,7 @@ application exceptions or secret-bearing artifacts.
 
 ## Known boundaries
 
-Donor domain services/APIs, workbook parsing, backups and production
+Workbook parsing, backups and production
 logging/monitoring are not implemented here. Account administration is protected
 on the server; staff otherwise have equal future CRM capabilities.
 The SLF4J API currently uses its default no-operation provider; a logging provider
@@ -208,8 +208,16 @@ process real personal data or listen on a public interface.
 It creates no donor records. PostgreSQL integration tests cover fresh installation,
 upgrade preserving auth data, down/reapply in disposable databases, exact payments,
 identity separation, archival and audit/runtime privileges. See
-[the approved schema](task-28-schema-proposal.md). Importing, editing profiles
-through the API and UI, source mappings and production operation remain later work.
+[the approved schema](task-28-schema-proposal.md). Importing, donor UI, source
+mappings and production operation remain later work.
+
+### Task #30 donor API
+
+Donor create/list/detail/update and protected change-history endpoints are now
+implemented; see [the API contract and verification](task-30-donor-api.md).
+No donor frontend is included yet. Run `bb migrate` before using the API locally,
+then sign in and complete any required password change. Writes require the normal
+session-bound CSRF token and exact configured Origin. No source import is enabled.
 
 ## Verification evidence (2026-10-25)
 
