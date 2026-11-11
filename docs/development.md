@@ -208,16 +208,26 @@ process real personal data or listen on a public interface.
 It creates no donor records. PostgreSQL integration tests cover fresh installation,
 upgrade preserving auth data, down/reapply in disposable databases, exact payments,
 identity separation, archival and audit/runtime privileges. See
-[the approved schema](task-28-schema-proposal.md). Importing, donor UI, source
+[the approved schema](task-28-schema-proposal.md). Importing, donor detail/edit UI, source
 mappings and production operation remain later work.
 
 ### Task #30 donor API
 
 Donor create/list/detail/update and protected change-history endpoints are now
 implemented; see [the API contract and verification](task-30-donor-api.md).
-No donor frontend is included yet. Run `bb migrate` before using the API locally,
+Run `bb migrate` before using the API locally,
 then sign in and complete any required password change. Writes require the normal
 session-bound CSRF token and exact configured Origin. No source import is enabled.
+
+### Task #31 donor table
+
+The authenticated navigation now includes **Darczyńcy**, with search, type/status
+filters, sortable headers and paginated reads. See
+[task-31-donor-list.md](task-31-donor-list.md) for behavior and state/privacy checks.
+An empty migrated development database displays the Polish empty state; no real
+donor data should be loaded. Details/editing UI remains #32 and the demo population
+command remains #33. Existing server authorization and synthetic-only restrictions
+are unchanged.
 
 ## Verification evidence (2026-10-25)
 

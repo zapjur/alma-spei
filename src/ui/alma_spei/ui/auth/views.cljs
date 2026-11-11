@@ -1,5 +1,6 @@
 (ns alma-spei.ui.auth.views
   (:require [alma-spei.common.contracts.auth :as contract]
+            [alma-spei.ui.donors.views :as donors]
             [reagent.core :as r]))
 
 (defn result-state [state action result]
@@ -138,6 +139,7 @@
            (when-not (:password-change-required user)
              [:<>
               [:button {:disabled busy :on-click #(swap! state assoc :screen :home :temporary-password nil)} "Start"]
+              [:button {:disabled busy :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Darczyńcy"]
               [:button {:disabled busy :on-click #(swap! state assoc :screen :password :temporary-password nil)} "Zmień hasło"]
               (when (:administrator user)
                 [:button {:disabled busy
@@ -147,5 +149,10 @@
           (cond
             (or (:password-change-required user) (= screen :password)) [password-form state]
             (and (= screen :accounts) (:administrator user)) [accounts state]
-            :else [:p "Wybierz zadanie. Moduł darczyńców będzie dostępny w kolejnym etapie."])])])
+            (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil)]
+            :else [:section
+                   [:h2 "Start"]
+                   [:p "Wybierz zadanie, aby rozpocząć pracę."]
+                   [:button {:type "button" :disabled busy
+                             :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Przejdź do darczyńców"]])])])
     (finally (reset! state {}))))

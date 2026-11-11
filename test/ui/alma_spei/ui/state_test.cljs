@@ -6,6 +6,8 @@
 
 (deftest state-transitions
   (is (= {:db {:health :loading} :health/request nil} (events/initialize {} [])))
+  (is (= {:health :loading :donors {:request-id 8} :donors-sequence 8}
+         (:db (events/initialize {:db {:health :ok :donors {:request-id 8} :donors-sequence 8}} []))))
   (is (= :ok (subs/health-status (events/health-loaded {} [:health/loaded :ok]) [])))
   (is (= :invalid (effects/response-status {:status "unexpected"}))))
 
