@@ -3,7 +3,8 @@
 
 (def suites
   {"unit" '[alma-spei.api.config-test alma-spei.api.http-test alma-spei.common.health-test
-            alma-spei.api.auth.security-test alma-spei.common.auth-test]
+            alma-spei.api.auth.security-test alma-spei.common.auth-test
+            alma-spei.common.donors-test]
    "integration" '[alma-spei.integration.database-test alma-spei.integration.auth-test
                    alma-spei.integration.donors-test]})
 
