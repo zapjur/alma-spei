@@ -82,3 +82,14 @@ The user authorized the [developer-only demo population](task-33-synthetic-data.
 protected creation audit and conflict-safe repeat behavior. This implements a small
 canonical fixture subset of the broader synthetic dataset plan, not three source
 workbooks or historical mapping/report semantics. No real personal values are copied.
+
+## Approved import metadata subset — Task #34
+
+Migration `202611070002-import-foundation` implements permanent `import_files`,
+retained `import_batches` attempts, append-only `import_batch_events` and immutable
+`staged_rows` metadata. The approved unique SHA belongs to the file identity, not to
+each processing attempt. Retry lineage, pending-attempt uniqueness, row-count checks
+and column grants protect this boundary. See
+[the approved schema and delivery](task-34-import-foundation-proposal.md).
+Source payload validation, review/preview/compensation tables and real-data retention
+remain later decisions; a generic JSONB object is not a finalized workbook contract.

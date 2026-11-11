@@ -51,7 +51,7 @@
     (migratus/migrate cfg)
     (is (db/ready? runtime 1))
     (let [history (jdbc/execute! migrator ["SELECT * FROM schema_migrations"])]
-      (is (= 3 (count history)))
+      (is (= 4 (count history)))
       (migratus/migrate cfg)
       (is (= history (jdbc/execute! migrator ["SELECT * FROM schema_migrations"]))))
     (is (= 1 (:application_metadata/foundation_version
@@ -68,9 +68,7 @@
                    (jdbc/execute! tx ["INSERT INTO transaction_probe VALUES (?)" 2])
                    (throw (ex-info "Synthetic failure" {})))))
     (is (= [1] (map :transaction_probe/id (jdbc/execute! migrator ["SELECT id FROM transaction_probe"]))))
-    (migratus/rollback cfg)
-    (migratus/rollback cfg)
-    (migratus/rollback cfg)
+    (dotimes [_ 4] (migratus/rollback cfg))
     (is (false? (db/ready? runtime 1)))
     (migratus/migrate cfg)
     (is (db/ready? runtime 1))))
@@ -98,7 +96,5 @@
           (is (= 503 (status port "/api/health/ready")))
           (migratus/migrate (migrations/migration-config (:migrator *database*)))
           (is (= 200 (status port "/api/health/ready")))
-          (migratus/rollback (migrations/migration-config (:migrator *database*)))
-          (migratus/rollback (migrations/migration-config (:migrator *database*)))
-          (migratus/rollback (migrations/migration-config (:migrator *database*)))
+          (dotimes [_ 4] (migratus/rollback (migrations/migration-config (:migrator *database*))))
           (finally (system/stop! running)))))))

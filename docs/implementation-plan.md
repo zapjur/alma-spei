@@ -11,6 +11,11 @@ instructed pushing #28 and proceeding to #29; shared contract delivery is record
 in [task-29-donor-contracts.md](task-29-donor-contracts.md). These steps do not approve
 new parser dependencies or real-data/production processing.
 
+The user approved Task #34's previously OPEN retry/reimport policy and exact schema.
+The [import foundation design and delivery](task-34-import-foundation-proposal.md)
+separates permanent file identity from retained processing attempts. Parser
+dependencies, real data and later commit/undo implementation retain their gates.
+
 ## Milestone 0 — bootstrap proposal and secure discovery
 
 Present the dependency/version compatibility proposal, source/build/test layout, modules, API conventions, local workflow, migration strategy and first scaffold plan. Clojure CLI and shadow-cljs are proposals; local PostgreSQL may be native or containerized, pending approval. In parallel, arrange authorized workbook inspection and document a sanitized field/semantics catalog; do not put actual personal values in prompts or the repository.

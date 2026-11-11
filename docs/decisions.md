@@ -116,6 +116,20 @@ audit and repeat/conflict protection. See [task-33-synthetic-data.md](task-33-sy
 No account, dependency, migration, workbook mapping, production access or general
 seed-reset mechanism is introduced.
 
+## CONFIRMED — Task #34 exact schema and retry policy (2026-11-07)
+
+The user explicitly approved [the import foundation proposal](task-34-import-foundation-proposal.md).
+One permanent `import_files` identity owns the unique SHA-256; processing attempts
+and events are retained separately. Ordinary identical uploads are duplicates even
+after renaming or source relabelling. Explicit versioned retries create a successor
+to the latest failed attempt without deleting history. Reimport after undo follows
+the same identity model but is not activated before #39's approved workflow.
+
+Approval includes the batch/event/staging metadata migration, protected grants,
+bounded streaming fingerprinting, authenticated reservation/failure/retry services
+and synthetic tests. It does not approve parser dependencies, source payload fields,
+financial deduplication rules, real processing or deployment.
+
 ## CONFIRMED — Milestone 1 approval (2026-10-25)
 
 The user explicitly approved all decisions in section 9 of the Milestone 1
