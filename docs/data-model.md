@@ -74,3 +74,11 @@ application data, never diagnostic log payloads. Service-level authoritative
 validation and transactional audit writes are implemented under #29/#30, not
 database triggers; see [the donor API](task-30-donor-api.md).
 Import/provenance/compensation metadata follows under #34 before imports are enabled.
+
+## Synthetic canonical demonstration subset — Task #33
+
+The user authorized the [developer-only demo population](task-33-synthetic-data.md):
+20 invented profiles and 30 explicit payment facts, versioned deterministic IDs,
+protected creation audit and conflict-safe repeat behavior. This implements a small
+canonical fixture subset of the broader synthetic dataset plan, not three source
+workbooks or historical mapping/report semantics. No real personal values are copied.

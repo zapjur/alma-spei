@@ -45,6 +45,10 @@
 (defn create-admin! []
   (process/shell {:extra-env (local-env)} "clojure" "-Srepro" "-M:create-admin"))
 
+(defn seed-demo! [args]
+  (let [result (apply process/shell {:extra-env (local-env) :continue true} "clojure" "-Srepro" "-M:seed-demo" args)]
+    (when-not (zero? (:exit result)) (System/exit (:exit result)))))
+
 (defn repl! []
   (process/shell {:extra-env (local-env)} "clojure" "-Srepro" "-M:repl"))
 
