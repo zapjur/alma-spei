@@ -1,11 +1,13 @@
 (ns alma-spei.ui.donors.views
   (:require [alma-spei.ui.donors.effects]
+            [alma-spei.ui.donors.detail-views :as details]
+            [alma-spei.ui.donors.labels :as labels]
             [alma-spei.ui.donors.events :as events]
             [alma-spei.ui.donors.subs]
             [re-frame.core :as rf]
             [reagent.core :as r]))
 
-(def entity-labels {"individual" "Osoba" "business" "Firma" "organization" "Organizacja"})
+(def entity-labels labels/entity-types)
 
 (defn sort-header [query field label]
   (let [selected? (= field (:sort-by query))
@@ -53,8 +55,9 @@
     [:tbody
      (for [donor donors]
        ^{:key (:id donor)}
-       [:tr
-        [:td (:name donor)]
+       [:tr {:class "donor-row" :on-click #(rf/dispatch [:donors/select (:id donor)])}
+        [:td [:button {:type "button" :class "donor-name" :aria-label (str "Otwórz kartę: " (:name donor))
+                       :on-click (fn [event] (.stopPropagation event) (rf/dispatch [:donors/select (:id donor)]))} (:name donor)]]
         [:td (get entity-labels (:entity-type donor))]
         [:td (or (not-empty (:city donor)) "—")]
         [:td (if (:is-active donor) "Aktywny" "Archiwalny")]])
@@ -90,16 +93,18 @@
      [:button {:type "button" :on-click refresh-session} "Odśwież sesję"]
      [:button {:type "button" :on-click #(rf/dispatch [:donors/reload])} "Spróbuj ponownie"])])
 
-(defn panel [refresh-session]
+(defn panel [refresh-session csrf]
   (r/with-let [_ (rf/dispatch [:donors/open])]
     (let [state (or @(rf/subscribe [:donors/state]) events/initial-state)]
-      [:section {:class "donor-list" :aria-labelledby "donor-heading" :aria-busy (= :loading (:status state))}
-       [:h2 {:id "donor-heading"} "Darczyńcy"]
-       [toolbar state]
-       (when (= :loading (:status state)) [:p {:role "status" :aria-live "polite"} "Pobieranie listy darczyńców…"])
-       (when (:error state) [error-panel (:error state) refresh-session])
-       [:p {:id "donor-scroll-help" :class "donor-table-hint"}
-        "Na małym ekranie przewiń tabelę w bok, aby zobaczyć pozostałe kolumny."]
-       [donor-table state]
-       [pagination state]])
+      (if-let [card (:detail state)]
+        [details/card card refresh-session csrf]
+        [:section {:class "donor-list" :aria-labelledby "donor-heading" :aria-busy (= :loading (:status state))}
+         [:h2 {:id "donor-heading" :tab-index -1 :ref details/focus-heading} "Darczyńcy"]
+         [toolbar state]
+         (when (= :loading (:status state)) [:p {:role "status" :aria-live "polite"} "Pobieranie listy darczyńców…"])
+         (when (:error state) [error-panel (:error state) refresh-session])
+         [:p {:id "donor-scroll-help" :class "donor-table-hint"}
+          "Na małym ekranie przewiń tabelę w bok, aby zobaczyć pozostałe kolumny."]
+         [donor-table state]
+         [pagination state]]))
     (finally (rf/dispatch [:donors/close]))))

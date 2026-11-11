@@ -76,6 +76,7 @@
     (is (= 2 (get-in history [:body :total])))
     (is (= #{"create" "update"} (set (map :action events))))
     (is (every? #(= (str (:actor *context*)) (:actor-id %)) events))
+    (is (every? #(= "Synthetic Donor Staff" (:actor-name %)) events))
     (is (some #(= {:field "name" :before "Synthetic Żółć" :after "Synthetic Changed"} %) changes))
     (is (some #(= {:field "street" :before "Synthetic Street" :after nil} %) changes))
     (is (not (contains? (get-in detail [:body :donor]) :created-by)))

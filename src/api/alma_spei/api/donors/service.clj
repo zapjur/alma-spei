@@ -36,7 +36,7 @@
   (muuntaja/decode "application/json" (.getBytes (str value) "UTF-8")))
 
 (defn public-event [event]
-  {:id (str (:id event)) :actor-id (str (:actor-id event))
+  {:id (str (:id event)) :actor-id (str (:actor-id event)) :actor-name (:actor-name event)
    :occurred-at (str (.toInstant ^java.sql.Timestamp (:occurred-at event)))
    :action (:action event)
    :changes (mapv (fn [change]

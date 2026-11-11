@@ -208,7 +208,7 @@ process real personal data or listen on a public interface.
 It creates no donor records. PostgreSQL integration tests cover fresh installation,
 upgrade preserving auth data, down/reapply in disposable databases, exact payments,
 identity separation, archival and audit/runtime privileges. See
-[the approved schema](task-28-schema-proposal.md). Importing, donor detail/edit UI, source
+[the approved schema](task-28-schema-proposal.md). Importing, correspondence, source
 mappings and production operation remain later work.
 
 ### Task #30 donor API
@@ -225,9 +225,18 @@ The authenticated navigation now includes **Darczyńcy**, with search, type/stat
 filters, sortable headers and paginated reads. See
 [task-31-donor-list.md](task-31-donor-list.md) for behavior and state/privacy checks.
 An empty migrated development database displays the Polish empty state; no real
-donor data should be loaded. Details/editing UI remains #32 and the demo population
-command remains #33. Existing server authorization and synthetic-only restrictions
+donor data should be loaded. Details/editing is documented under #32 below; the
+demo population command remains #33. Existing server authorization and synthetic-only restrictions
 are unchanged.
+
+### Task #32 donor card and editing
+
+Open a row/name button in **Darczyńcy** to read a profile, payments and changes,
+or edit approved profile fields. Stale saves preserve the draft and require an
+explicit reload; unconfirmed saves are not automatically retried. See
+[task-32-donor-details.md](task-32-donor-details.md). No donor creation UI, payment
+editing, imports or production access is added. The synthetic population task #33
+is still separate.
 
 ## Verification evidence (2026-10-25)
 
