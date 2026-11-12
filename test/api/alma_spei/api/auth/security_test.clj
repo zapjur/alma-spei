@@ -45,3 +45,12 @@
                 service/user-row (fn [_ id] {:id id :administrator false})]
     (is (= {:id :stable :administrator false}
            (service/resolve-identity nil {:provider-id "future" :subject "subject"})))))
+
+(deftest upload-body-exemption-is-limited-to-multipart-on-the-exact-route
+  (let [handler (http/wrap-body-limit (constantly {:status 200}))
+        request {:request-method :post :uri "/api/imports/upload"}]
+    (doseq [content-type ["application/json" "application/edn" "text/plain" ""]]
+      (is (= 413 (:status (handler (assoc request :headers {"content-type" content-type}
+                                          :body (java.io.ByteArrayInputStream. (byte-array 16385))))))))
+    (is (= 200 (:status (handler (assoc request :headers {"content-type" "multipart/form-data; boundary=synthetic"}
+                                        :body (java.io.ByteArrayInputStream. (byte-array 16385)))))))))

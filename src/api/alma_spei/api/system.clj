@@ -1,12 +1,15 @@
 (ns alma-spei.api.system
   (:require [alma-spei.api.db.core :as db]
             [alma-spei.api.http.routes :as routes]
+            [alma-spei.api.imports.service :as imports]
             [alma-spei.api.http.server :as server]
             [integrant.core :as ig]))
 
 (defmethod ig/init-key ::database [_ settings] (db/datasource settings))
 (defmethod ig/halt-key! ::database [_ _ds] nil)
-(defmethod ig/init-key ::handler [_ {:keys [database timeout auth]}] (routes/handler database timeout auth))
+(defmethod ig/init-key ::handler [_ {:keys [database timeout auth]}]
+  (imports/recover-interrupted! database)
+  (routes/handler database timeout auth))
 (defmethod ig/init-key ::server [_ {:keys [handler settings]}] (server/start! handler settings))
 (defmethod ig/halt-key! ::server [_ server] (server/stop! server))
 
