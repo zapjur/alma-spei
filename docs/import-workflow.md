@@ -70,3 +70,22 @@ payment overlap rules and post-undo activation remain gated, not inferred from h
 PROPOSED: commit revalidates approved preview version, row/review decisions, authorization, current entity versions and required pre-import backup evidence; stale state requires a fresh preview/approval. Serialize competing commit/undo eligibility checks in PostgreSQL, then write all canonical changes, audit and compensation metadata in the same transaction. Undo also rechecks latest-batch status and every dependency/version before any compensation; one conflict rolls back the entire undo. Exact locking/version design requires approval and concurrency tests.
 
 Protect and expire uploaded workbooks/staging under approved policy; keep only necessary provenance and evidence. See [operations](operations.md) for backup gating and [data-model](data-model.md#synthetic-dataset-plan-proposed) for synthetic replay/undo scenarios.
+
+## Delivered task 35 — synthetic bank upload
+
+The approved [bank parser contract](task-35-bank-parser-proposal.md) now provides
+session/CSRF-protected multipart POST `/api/imports/upload` and authenticated GET
+`/api/imports/:id/rows`. CSV requires an explicit separator; XLSX retains physical
+row indices. Valid and invalid nonblank rows are staged atomically with exact
+amount strings, safe validation codes and parser/mapping versions. Source currency
+remains unknown. Parser validity never counts as human review or commit approval.
+
+Whole-file duplicate protection runs before parsing. Explicit failed-attempt
+retry verifies original server-measured hash and length in the same locked
+transaction as retry creation. Parse failures preserve an auditable failed attempt;
+responses expose its ID/version when available. Single-process startup recovery
+marks interrupted attempts failed before opening the listener. No donor/payment
+writes, financial deduplication, review decisions or commit/undo are implemented
+by this task. The [#36 upload screen](task-36-import-upload.md) consumes these APIs, displays
+all validation rows and supports explicit failed-attempt retry. Matching, human
+review decisions and final approval are separate later steps.
