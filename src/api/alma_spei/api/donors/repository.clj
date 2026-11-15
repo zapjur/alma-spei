@@ -31,8 +31,8 @@
                 (concat (map profile profile-fields) [actor id]))))
 
 (defn payments [tx id limit offset]
-  {:donations (query tx ["SELECT id,amount,currency,received_on FROM donations WHERE donor_id=? ORDER BY received_on DESC,id ASC LIMIT ? OFFSET ?" id limit offset])
-   :total (:total (one tx ["SELECT count(*) AS total FROM donations WHERE donor_id=?" id]))})
+  {:donations (query tx ["SELECT id,amount,currency,received_on FROM active_donations WHERE donor_id=? ORDER BY received_on DESC,id ASC LIMIT ? OFFSET ?" id limit offset])
+   :total (:total (one tx ["SELECT count(*) AS total FROM active_donations WHERE donor_id=?" id]))})
 
 (defn history [tx id limit offset]
   (let [events (query tx ["SELECT e.id,e.actor_id,u.display_name AS actor_name,e.occurred_at,e.action FROM donor_audit_events e JOIN users u ON u.id=e.actor_id WHERE e.donor_id=? ORDER BY e.occurred_at DESC,e.id DESC LIMIT ? OFFSET ?" id limit offset])

@@ -482,3 +482,31 @@ apply imports; no commit/undo controls are provided yet. Use synthetic data only
 rollback fault-injection, exact payment-reference, proposal-reuse and immutable
 preview checks. Portable JVM/JS contracts and UI state/transport tests run in
 `bb check`. See [task 38 delivery notes](task-38-review-decisions-proposal.md).
+
+## Synthetic execution APIs — Task #39
+
+Apply the sixth migration with `bb migrate`. Normal startup keeps commit disabled.
+For a disposable synthetic-only environment, explicitly start with
+`ALMA_SYNTHETIC_IMPORTS=true bb api` (or `bb repl`). This enables a labelled fake
+backup adapter; it does not make a real backup or enable production use. Leave the
+flag unset for normal fail-closed behavior. No dependency installation is required.
+
+Review rows against the current catalogue and prepare a v2 preview. Existing v1
+snapshots stay readable but require fresh review/preview before execution. Call POST
+`/api/imports/:id/previews/:preview-id/backup` with exact batch/catalogue versions,
+then POST `/api/imports/commit` with exact batch/preview/digest/catalogue/backup IDs
+and confirmation. Use authenticated same-origin requests with the session-bound CSRF
+header. These endpoints are backend preparation for #40's confirmation screen.
+
+GET `/api/imports` pages history; per-batch `/outcome`, `/commit-items` and
+`/undo-eligibility` expose protected receipts/effects/blockers. POST
+`/api/imports/undo-last` requires exact latest commit/batch identity/version and
+confirmation. Exact replays return receipts without new writes. Undo preserves raw
+payments and audit; normal donor payment pages/selectors exclude reversed payments.
+A confirmed multipart retry of the latest undone attempt verifies original bytes and
+creates fresh staging; it never inherits previous review/approval.
+
+All app canonical writers, including manual donor edits and `bb seed-demo`, share
+a catalogue gate. Canonical changes invalidate prior review evidence globally. This
+can require re-review of unrelated rows; it deliberately favors correctness. The
+used-database downgrade guard is not a backup/restore mechanism.

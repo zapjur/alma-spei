@@ -266,3 +266,16 @@ block readiness; profile/financial identity remains separate from correspondence
 A preview leaves the batch in `review`, writes no canonical records and grants no
 commit authority. Real overlap/evidence standards, refunds, privacy/retention and
 production remain OPEN; task 39 requires its own commit/undo approval package.
+
+## CONFIRMED — task 39 execution approval
+
+On 2026-11-15 the user approved the [task 39 proposal](task-39-import-commit-undo-proposal.md)
+with “apply”: catalogue-bound financial review and v2 previews, six additive execution/
+compensation tables, atomic canonical commit with typed provenance, explicitly enabled
+synthetic backup receipts, latest-ever-only undo and fresh-attempt reimport. No new
+dependency. This supersedes the card's destructive undo wording: retain batches,
+audit and original payments, append payment reversals, and archive only unchanged
+import-created donors after dependency preflight. No walking backward to earlier
+imports after undoing the latest. Real backup providers/policy, financial evidence
+standards and production/privacy readiness remain OPEN. The test adapter creates
+no real backup and cannot authorize real-data processing.

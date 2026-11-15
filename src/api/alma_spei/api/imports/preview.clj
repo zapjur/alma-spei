@@ -1,5 +1,6 @@
 (ns alma-spei.api.imports.preview
   (:require [alma-spei.api.auth.service :as auth]
+            [alma-spei.api.catalog :as catalog]
             [alma-spei.api.auth.crypto :as crypto]
             [alma-spei.api.donors.repository :as donors]
             [alma-spei.api.donors.service :as donor-service]
@@ -15,7 +16,7 @@
            [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]))
 
-(def rule-version "review-preview-v1")
+(def rule-version "review-preview-v2")
 (defn ordered [value]
   (cond (map? value) ["map" (mapv (fn [[k v]] [(name k) (ordered v)]) (sort-by (comp name key) value))]
         (sequential? value) ["sequence" (mapv ordered value)]
@@ -37,6 +38,7 @@
   (let [sources (repository/source-rows tx (:id batch)) decisions (repository/all-decisions tx (:id batch))
         by-row (into {} (map (fn [d] [[(:worksheet-index d) (:row-number d)] d]) decisions))
         targets (target-maps tx (:id batch) decisions lock?)
+        catalog-version (catalog/version tx)
         checked (mapv (fn [row]
                         (let [decision (get by-row [(:worksheet-index row) (:row-number row)])
                               input (decisions/public-decision decision)
@@ -46,6 +48,7 @@
                               code (cond
                                      (not= "valid" (:validation-state row)) "invalid-row"
                                      (not (:complete decision)) "missing-decision"
+                                     (not= catalog-version (:accepted-catalog-version decision)) "stale-catalog"
                                      (not (pos? (bigdec (:amount payload)))) "unsupported-amount"
                                      (or (nil? target) (not= (:target-version decision) (:version target))) "stale-target"
                                      (and (= "existing-donor" (:kind decision)) (not (:is-active target))) "inactive-donor"
@@ -53,11 +56,11 @@
                                           (not (decisions/payment-matches? (get-in targets [:payments (:donation-id decision)])
                                                                            (:donor-id decision) payload (:financial input) (:donation-version decision)))) "duplicate-mismatch")]
                           {:row row :decision decision :input input :payload payload :code code})) sources)]
-    {:checked checked :targets targets
+    {:checked checked :targets targets :catalog-version catalog-version
      :blockers (into [] (keep (fn [{:keys [row code]}] (when code {:worksheet-index (:worksheet-index row) :row-number (:row-number row) :code code}))) checked)}))
 (defn item [kind target row payload]
   {:kind kind :target-id (some-> target str) :worksheet-index (:worksheet-index row) :row-number (:row-number row) :payload payload})
-(defn effects [batch {:keys [checked targets]}]
+(defn effects [batch {:keys [checked targets catalog-version]}]
   (let [selected (filterv #(not= "unresolved" (:kind %)) (mapv :decision checked))
         donor-items (mapv (fn [id] (let [donor (get-in targets [:donors id])]
                                      (item "existing-donor-reference" id nil {:donor (donor-service/public-donor donor) :changes {}})))
@@ -83,10 +86,10 @@
     {:items items :summary {:new-donors (count proposal-items) :new-payments (count new-payments)
                             :duplicate-references (- (count payment-items) (count new-payments))
                             :totals (mapv (fn [[currency amount]] {:currency currency :amount (.toPlainString ^java.math.BigDecimal amount)}) (sort-by key totals))}
-     :context [rule-version (str (:id batch)) (:version batch) (str (:file-id batch)) (:parse-version batch) (:mapping-version batch)]}))
+     :context [rule-version catalog-version (str (:id batch)) (:version batch) (str (:file-id batch)) (:parse-version batch) (:mapping-version batch)]}))
 (defn public-preview [row]
   {:id (str (:id row)) :batch-id (str (:batch-id row)) :batch-version (:batch-version row)
-   :created-by (str (:created-by row)) :created-at (decisions/timestamp (:created-at row)) :rule-version (:rule-version row)
+   :catalog-version (:catalog-version row) :created-by (str (:created-by row)) :created-at (decisions/timestamp (:created-at row)) :rule-version (:rule-version row)
    :effect-digest (:effect-digest row) :item-count (:item-count row) :summary (imports/decode-json (:summary row))})
 (defn preview! [tx batch id]
   (or (repository/preview tx batch (decisions/uuid! id)) (imports/fail! 404 "not-found" "Nie znaleziono podglądu importu.")))
@@ -98,6 +101,7 @@
     (let [actor (auth/authorize! tx token false false)]
       (when-not (and csrf (crypto/equal? (:csrf-digest actor) (crypto/digest csrf))) (imports/fail! 403 "csrf" "Sesja formularza wygasła. Odśwież stronę."))
       (imports/validate! contract/preview-input input)
+      (catalog/lock! tx)
       (let [batch (imports/locked-batch! tx id (:batch-version input))]
         (decisions/review-state! batch)
         (let [prepared (prepare tx batch true)]
@@ -106,11 +110,11 @@
                                                :blockers (vec (take 25 (:blockers prepared))) :total (count (:blockers prepared))})))
           (let [{:keys [items summary context]} (effects batch prepared)
                 id (UUID/randomUUID) row (repository/insert-preview! tx {:id id :batch-id (:id batch) :batch-version (:version batch)
-                                                                         :created-by (:id actor) :effect-digest (digest context items) :summary summary :item-count (count items)})]
+                                                                         :catalog-version (:catalog-version prepared) :created-by (:id actor) :effect-digest (digest context items) :summary summary :item-count (count items)})]
             (doseq [item items] (repository/insert-item! tx id item))
             (decisions/event! tx (:id actor) (:id batch) "preview-created" {:preview-id id} nil
                               {:version (:version batch) :preview-id (str id) :effect-digest (:effect-digest row)})
-            {:batch (imports/public-batch batch) :preview (public-preview row) :stale false}))))))
+            {:catalog-version (catalog/version tx) :batch (imports/public-batch batch) :preview (public-preview row) :stale false}))))))
 (defn read! [ds token action id subject input]
   (auth/authorize! ds token false false)
   (jdbc/with-transaction [tx ds {:isolation :repeatable-read}]
@@ -118,12 +122,12 @@
       (imports/validate! (if (= action :preview) [:map {:closed true}] import-contract/page-query) input)
       (case action
         :blockers (let [blockers (:blockers (prepare tx batch false))]
-                    {:batch (imports/public-batch batch) :blockers (vec (take limit (drop offset blockers))) :total (count blockers) :limit limit :offset offset})
+                    {:catalog-version (catalog/version tx) :batch (imports/public-batch batch) :blockers (vec (take limit (drop offset blockers))) :total (count blockers) :limit limit :offset offset})
         :preview (let [preview (preview! tx batch-id subject)
                        prepared (prepare tx batch false)
                        current (when (and (= "review" (:state batch)) (empty? (:blockers prepared))) (effects batch prepared))]
-                   {:batch (imports/public-batch batch) :preview (public-preview preview)
-                    :stale (not (and current (= (:version batch) (:batch-version preview))
+                   {:catalog-version (catalog/version tx) :batch (imports/public-batch batch) :preview (public-preview preview)
+                    :stale (not (and (= rule-version (:rule-version preview)) current (= (:version batch) (:batch-version preview))
                                      (= (:effect-digest preview) (digest (:context current) (:items current)))))})
         :items (let [preview (preview! tx batch-id subject)]
                  {:preview (public-preview preview) :items (mapv public-item (repository/items tx (:id preview) limit offset))

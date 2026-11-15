@@ -1,5 +1,6 @@
 (ns alma-spei.api.donors.service
   (:require [alma-spei.api.audit.donors :as audit]
+            [alma-spei.api.catalog :as catalog]
             [alma-spei.api.auth.crypto :as crypto]
             [alma-spei.api.auth.service :as auth]
             [alma-spei.api.donors.repository :as repository]
@@ -50,6 +51,7 @@
       (when (#{:create :update} action)
         (when-not (and csrf (crypto/equal? (:csrf-digest actor) (crypto/digest csrf)))
           (fail! 403 "csrf" "Sesja formularza wygasła. Odśwież stronę.")))
+      (when (#{:create :update} action) (catalog/lock! tx))
       (case action
         :list
         (do (validate! contract/list-query input)

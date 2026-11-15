@@ -110,3 +110,28 @@ completeness; referenced versions are revalidated during preview. Review journal
 retain protected before/after snapshots and stable actors. Reviewer/actor display
 names in reads are current account labels; stored target labels reflect the save.
 Preview payloads retain accepted versions, exact source facts and separate effects.
+
+## Approved import execution subset — Task #39
+
+Migration `202611150002-import-execution` adds `canonical_catalog_state`, immutable
+`import_backup_runs`, `import_commits`, `import_commit_items`, `import_undos` and
+`donation_reversals`. Typed composite references bind receipts/previews/batches,
+applied items and import-created subjects; original payment rows and batch history
+are retained. Nullable `import_batch_id` on donors/payments distinguishes manual/demo
+records from imported creates. Existing reference targets keep their original origin.
+Normal payment queries use the `active_donations` view, excluding reversals.
+
+Catalogue triggers advance revision on every canonical donor/payment/reversal row
+change. All application writers acquire one advisory gate before entity locks. Review
+decisions record accepted catalogue revision; v2 previews bind it in header/digest.
+Legacy v1 snapshots remain readable, with NULL revision and explicit staleness; old
+decisions require a new human review save. Canonical changes invalidate old overlap
+evidence even if their selected targets did not change. This is conservative, with
+no automatic payment identity rule.
+
+Commit ordinals, not timestamps, define the latest-ever import. An undo appends typed
+reversals and normal donor archive audit, preserves provenance, and rejects later
+edits/references. Unknown donor/payment FK modules block compensation until their
+dependency policy is implemented. The test-only down migration refuses execution
+history; on an unused disposable database it removes v2-only snapshots before
+restoring the preceding schema. It is not a production rollback procedure.

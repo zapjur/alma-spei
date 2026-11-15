@@ -1,5 +1,6 @@
 (ns alma-spei.api.imports.decisions
   (:require [alma-spei.api.auth.service :as auth]
+            [alma-spei.api.catalog :as catalog]
             [alma-spei.api.auth.crypto :as crypto]
             [alma-spei.common.contracts.donors :as donor-contract]
             [alma-spei.api.donors.service :as donors]
@@ -29,6 +30,7 @@
   (when row
     (-> (select-keys row [:version :kind :target-version :donation-version :complete])
         (assoc :donor-id (some-> (:donor-id row) str) :proposal-id (some-> (:proposal-id row) str)
+               :accepted-catalog-version (:accepted-catalog-version row)
                :financial (some-> (:financial row) imports/decode-json) :donation-id (some-> (:donation-id row) str)
                :reviewer-id (str (:reviewer-id row)) :reviewer-name (:reviewer-name row) :target-label (:target-label row) :reviewed-at (timestamp (:reviewed-at row))))))
 (defn row! [tx batch locator]
@@ -59,7 +61,7 @@
                        (when-not (= (:target-version input) (:version donor)) (stale!)))
     "new-proposal" (when-not (= (:target-version input) (:version (proposal! tx batch (:proposal-id input) true))) (stale!))))
 (defn decision-response [tx batch locator]
-  {:batch (imports/public-batch (batches/batch-row tx batch)) :row (imports/public-row (row! tx batch locator))
+  {:catalog-version (catalog/version tx) :batch (imports/public-batch (batches/batch-row tx batch)) :row (imports/public-row (row! tx batch locator))
    :decision (public-decision (repository/decision tx batch (:worksheet locator) (:row locator)))})
 (defn write! [ds token csrf action id subject locator input]
   (jdbc/with-transaction [tx ds]
@@ -69,6 +71,8 @@
           actor (:id principal)
           schema (case action :proposal-create contract/proposal-create :proposal-update contract/proposal-update :decision contract/decision-input)]
       (imports/validate! schema input)
+      (catalog/lock! tx)
+      (when (not= action :proposal-update) (catalog/check! tx (:catalog-version input)))
       (let [batch (imports/locked-batch! tx id (:batch-version input)) batch-id (:id batch)]
         (review-state! batch)
         (case action
@@ -84,7 +88,7 @@
             (when changed?
               (repository/advance-batch! tx batch-id)
               (event! tx actor batch-id (if before "proposal-updated" "proposal-created") {:proposal-id (uuid! (:id after))} before after))
-            {:batch (imports/public-batch (batches/batch-row tx batch-id)) :proposal after})
+            {:catalog-version (catalog/version tx) :batch (imports/public-batch (batches/batch-row tx batch-id)) :proposal after})
           :decision
           (let [row (row! tx batch-id locator)
                 before (public-decision (repository/decision tx batch-id (:worksheet locator) (:row locator)))
@@ -97,7 +101,8 @@
                                                 (:payload (imports/public-row row)) (:financial input) (:donation-version input))
                       (imports/fail! 409 "duplicate-mismatch" "Wskazana wpłata nie odpowiada danym wiersza.")))
                 fields (mapv first contract/decision-fields)]
-            (when-not (= (select-keys before fields) (select-keys input fields))
+            (when-not (and (= (select-keys before fields) (select-keys input fields))
+                           (= (:accepted-catalog-version before) (when (contract/complete? input) (:catalog-version input))))
               (let [_ (repository/save-decision! tx batch-id (:worksheet locator) (:row locator) actor
                                                  (-> input (update :donor-id #(some-> % uuid!)) (update :proposal-id #(some-> % uuid!))
                                                      (update :donation-id #(some-> % uuid!))) (contract/complete? input))
@@ -115,18 +120,18 @@
         :decision (do (imports/validate! [:map {:closed true}] input) (decision-response tx batch-id locator))
         :proposals (do (imports/validate! import-contract/page-query input)
                        (let [limit (get input :limit 25) offset (get input :offset 0) result (repository/proposals tx batch-id limit offset)]
-                         {:batch (imports/public-batch batch) :proposals (mapv public-proposal (:proposals result))
+                         {:catalog-version (catalog/version tx) :batch (imports/public-batch batch) :proposals (mapv public-proposal (:proposals result))
                           :total (:total result) :limit limit :offset offset}))
         :payments (do (imports/validate! contract/payments-query input)
                       (let [donor (donors/donor! tx (:donor-id input) false) limit (get input :limit 25) offset (get input :offset 0)
                             result (repository/payments tx (:id donor) limit offset)]
-                        {:batch (imports/public-batch batch) :donor-id (:donor-id input) :total (:total result) :limit limit :offset offset
+                        {:catalog-version (catalog/version tx) :batch (imports/public-batch batch) :donor-id (:donor-id input) :total (:total result) :limit limit :offset offset
                          :payments (mapv (fn [payment] {:id (str (:id payment)) :version (:version payment)
                                                         :amount (.toPlainString ^java.math.BigDecimal (:amount payment)) :currency (:currency payment)
                                                         :received-on (str (:received-on payment))}) (:payments result))}))
         :events (do (imports/validate! import-contract/page-query input)
                     (let [limit (get input :limit 25) offset (get input :offset 0) result (repository/events tx batch-id limit offset)]
-                      {:batch (imports/public-batch batch) :total (:total result) :limit limit :offset offset
+                      {:catalog-version (catalog/version tx) :batch (imports/public-batch batch) :total (:total result) :limit limit :offset offset
                        :events (mapv (fn [event] (-> (select-keys event [:actor-name :event-type :worksheet-index :row-number :before-version :after-version])
                                                      (assoc :id (str (:id event)) :actor-id (str (:actor-id event)) :occurred-at (timestamp (:occurred-at event))
                                                             :proposal-id (some-> (:proposal-id event) str) :preview-id (some-> (:preview-id event) str)

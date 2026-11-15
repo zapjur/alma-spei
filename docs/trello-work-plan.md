@@ -405,3 +405,13 @@ Five additive tables; no new dependencies or canonical import writes. Piotr is t
 sole assigned contributor. Next: #39 transactional commit and latest-import undo,
 with its own concrete schema/backup/concurrency approval proposal. Three tasks
 remain in this sprint after #38: #39, #40 and #41.
+
+## Task 39 delivery
+
+The user approved [task 39](task-39-import-commit-undo-proposal.md) with “apply” on
+2026-11-15. `trello/39-import-commit-undo` stacks on #38 and implements catalogue-
+bound review, synthetic backup gating, transactional commit/provenance, retained
+payment compensation, latest-ever-only undo and fresh-attempt reimport. It preserves
+batch/audit history instead of the card's destructive deletion. Piotr is the sole
+assigned contributor. Next: #40 final confirmation/history/undo UI, then #41 whole-
+workflow verification. Two sprint tasks remain after #39.

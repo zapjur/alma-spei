@@ -70,9 +70,11 @@
              (when-not (and (= (:file-hash-sha256 measured) (:fingerprint file))
                             (= (:byte-count measured) (:byte-count file)) (= "bank" (:source-type batch)))
                (fail! 409 "retry-file-mismatch" "Ponowienie wymaga tego samego pliku źródłowego."))))
-        ;; Reimport of undone batches is enabled only with the later undo service.
-         (when-not (and (= "failed" (:state batch)) (= (:id batch) (:id latest)))
-           (fail! 409 "ineligible-retry" "Można ponowić tylko ostatni nieudany import tego pliku."))
+        ;; Undone attempts retain their file identity and require fresh staging/review.
+         (when-not (and (or (= "failed" (:state batch))
+                            (and (= "undone" (:state batch)) measured
+                                 (:present (repository/one tx ["SELECT EXISTS(SELECT 1 FROM import_undos WHERE batch_id=?) AS present" (:id batch)])))) (= (:id batch) (:id latest)))
+           (fail! 409 "ineligible-retry" "Można ponowić tylko ostatni nieudany lub wycofany import tego pliku."))
          (repository/record-event! tx batch (:id actor) "retry-requested" (:state batch) nil)
          (let [next-batch (repository/create-batch! tx (:file-id batch) (:id actor) batch (inc (:attempt-number batch)) (:id batch))]
            (repository/record-event! tx next-batch (:id actor) "reserved" nil nil)

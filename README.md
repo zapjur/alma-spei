@@ -149,3 +149,10 @@ profile, verify currency and payment overlap, and prepare an immutable paged
 preview. Decisions retain reviewer/time/version and survive reload; conflicts
 preserve the local draft. See [saved review decisions](docs/task-38-review-decisions-proposal.md).
 Preview creates no canonical donor/payment and is not final import approval.
+
+The [task 39 backend](docs/task-39-import-commit-undo-proposal.md) can atomically
+apply an explicitly confirmed current preview and compensate the latest committed
+import. Original records/history remain; reversed payments leave normal payment
+reads and unchanged import-created donors are archived. Commit is disabled by
+default. An explicitly enabled synthetic backup adapter supports development only;
+it creates no recoverable backup. Final confirmation/history controls are #40.

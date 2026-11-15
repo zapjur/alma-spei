@@ -46,7 +46,7 @@
         (update-in [:review :aux] dissoc :payments)) db))
 (defn build-input [state]
   (let [editor (:editor state) draft (:draft editor)]
-    (-> draft (assoc :batch-version (:batch-version editor) :version (or (get-in editor [:current :version]) 0))
+    (-> draft (assoc :catalog-version (:catalog-version editor) :batch-version (:batch-version editor) :version (or (get-in editor [:current :version]) 0))
         (assoc :financial (when-not (= "unresolved" (:kind draft))
                             (update (:financial draft) :currency #(not-empty (str/trim (or % "")))))))))
 (defn saveable? [state]
@@ -89,7 +89,7 @@
         update? (:id form)
         input (cond-> {:batch-version (get-in state [:editor :batch-version]) :profile (profile-input form)}
                 update? (assoc :version (:version form))
-                (not update?) (assoc :checked-existing true :checked-proposals true))]
+                (not update?) (assoc :checked-existing true :checked-proposals true :catalog-version (get-in state [:editor :catalog-version])))]
     (if (and csrf (proposal-saveable? state))
       (let [result (request db [:editor] (if update? :proposal-update :proposal-create) {:csrf csrf :input input :proposal-id (:id form)})]
         (assoc-in result [:db :review :editor :status] :saving)) {:db db})))
@@ -118,12 +118,12 @@
                                            :requires-reload (and mutation? (contains? #{:conflict :uncertain} error)))}]
                 (if (= error :blocked) (assoc result :dispatch [:decision/aux :blockers 0]) result))
         (= op :decision-load)
-        {:db (-> db (assoc-in [:review :editor] {:status :ready :batch-version (get-in data [:batch :version]) :current (:decision data)
+        {:db (-> db (assoc-in [:review :editor] {:status :ready :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
                                                  :draft (draft-from (:decision data)) :initial (draft-from (:decision data))})
                  (assoc-in [:review :work :batch] (:batch data)))}
         (= op :decision-save)
         {:db (-> db (update-in [:review :editor] assoc :status :ready :error nil :requires-reload false
-                               :batch-version (get-in data [:batch :version]) :current (:decision data)
+                               :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
                                :draft (draft-from (:decision data)) :initial (draft-from (:decision data)) :notice :decision-saved)
                  (assoc-in [:review :work :batch] (:batch data)) (update :review dissoc :preview :aux))}
         (contains? #{:proposal-create :proposal-update} op)

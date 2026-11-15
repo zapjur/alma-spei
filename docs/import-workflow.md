@@ -131,3 +131,35 @@ payments are immutable to the runtime; review uses per-payment advisory locks
 (`review-payment:<UUID>`) rather than granting payment UPDATE for row locks. Any
 future compensation changing/removing payments must cooperate with this lock policy.
 Backup/approval/commit/undo operations remain deferred and require their own approval.
+
+## Delivered task 39 — atomic execution and compensation
+
+The [approved package](task-39-import-commit-undo-proposal.md) adds explicit POST
+`/api/imports/commit` and `/api/imports/undo-last`. Commit accepts exact batch/preview/
+digest/catalogue/backup identity plus confirmation, revalidates all immutable effects,
+and atomically writes approval, canonical records, provenance, audit and committed
+state. Failure leaves the batch in review. Exact successful request replay returns
+the same receipt and current state; it never inserts twice or reapplies an undone
+commit. A changed request returns a conflict.
+
+Financial evidence captures the catalogue version when a row is loaded and saved.
+Any canonical change requires explicit re-review; a new preview alone cannot renew
+old evidence. Existing profiles never receive import field overwrites. Each reused
+proposal creates one donor; genuinely separate equal payments remain separate.
+
+Undo preflights the latest-ever commit, exact facts/versions and dependencies under
+the same writer gate. It appends payment reversals and archives unchanged created
+donors, preserving all originals/history. Any later edit/reference or unknown FK
+module blocks the whole compensation. Undoing B does not make A eligible. Exact
+undo replay is safe. Future writers/dependency modules must join this protocol.
+
+Explicit reimport accepts only the latest successfully undone attempt with verified
+original bytes/source and confirmation. It creates a successor with fresh staging
+and zero reviewed rows; old decisions, approval and backup are not copied. Ordinary
+identical-byte uploads remain duplicates. Read-only history/outcome/applied-items/
+undo-eligibility APIs support #40; GET eligibility never replaces POST preflight.
+
+Backup requests run outside the write transaction and are revalidated afterward.
+Default-disabled synthetic receipts expire after five minutes and are bound to the
+exact preview/catalogue. They create no actual backup. Real operational/privacy
+approval and a real provider remain required before real-data execution.
