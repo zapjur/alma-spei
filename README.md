@@ -143,3 +143,9 @@ deduplication rules.
 Open **Weryfikacja importów** to reopen a staged bank batch, browse every row, and
 manually search/compare donor profiles side by side. The batch/page link survives
 reload. Browsing saves no linkage decision; see [the review queue](docs/task-37-review-queue.md).
+
+Reviewers can now explicitly save an existing-donor choice or reusable proposed
+profile, verify currency and payment overlap, and prepare an immutable paged
+preview. Decisions retain reviewer/time/version and survive reload; conflicts
+preserve the local draft. See [saved review decisions](docs/task-38-review-decisions-proposal.md).
+Preview creates no canonical donor/payment and is not final import approval.

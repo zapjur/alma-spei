@@ -42,14 +42,13 @@
         (is (= donor (:donors/id (first (jdbc/execute! runtime ["SELECT id FROM donors"])))))
         (migratus/migrate cfg)
         (is (= 1 (:n (first (jdbc/execute! runtime ["SELECT count(*) AS n FROM donors"]))))))
-      (fixture/rollback-latest! cfg)
-      (fixture/rollback-latest! cfg)
+      (dotimes [_ 3] (fixture/rollback-latest! cfg))
       (is (nil? (:table_name (first (jdbc/execute! migrator ["SELECT to_regclass('public.donors') AS table_name"])))))
       (is (= actor (:users/id (first (jdbc/execute! runtime ["SELECT id FROM users"])))))
       (migratus/migrate cfg)
       (is (empty? (jdbc/execute! runtime ["SELECT id FROM donors"])))
       (is (= actor (:users/id (first (jdbc/execute! runtime ["SELECT id FROM users"])))))
-      (is (= 4 (:n (first (jdbc/execute! migrator ["SELECT count(*) AS n FROM schema_migrations"]))))))))
+      (is (= 5 (:n (first (jdbc/execute! migrator ["SELECT count(*) AS n FROM schema_migrations"]))))))))
 
 (deftest donor-identity-is-not-name-or-address-equality
   (migrated!)

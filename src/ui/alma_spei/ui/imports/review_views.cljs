@@ -1,5 +1,6 @@
 (ns alma-spei.ui.imports.review-views
   (:require [alma-spei.ui.imports.review-events]
+            [alma-spei.ui.imports.decision-views :as decisions]
             [alma-spei.ui.imports.review-effects]
             [alma-spei.ui.imports.views :as uploads]
             [alma-spei.common.contracts.imports :as imports]
@@ -19,20 +20,20 @@
 (defn pager [{:keys [status offset limit total]} event label]
   [:nav {:class "import-pagination" :aria-label label}
    [:button {:type "button" :disabled (not (and (= status :ready) (pos? offset)))
-             :on-click #(rf/dispatch [event :previous])} "Poprzednia strona"]
+             :on-click #(when (or (not= event :review/page) (decisions/allow-leave!)) (rf/dispatch [event :previous]))} "Poprzednia strona"]
    [:span {:role "status"} (when (= :ready status) (str "Pozycje: " (if (zero? total) 0 (inc offset)) "–" (min total (+ offset limit)) " z " total))]
    [:button {:type "button" :disabled (not (and (= status :ready) (< (+ offset limit) total)))
-             :on-click #(rf/dispatch [event :next])} "Następna strona"]])
+             :on-click #(when (or (not= event :review/page) (decisions/allow-leave!)) (rf/dispatch [event :next]))} "Następna strona"]])
 (defn progress [batch]
   (let [valid (or (:valid-rows batch) 0) reviewed (or (:reviewed-rows batch) 0)]
     [:div {:class "review-progress"}
-     [:p {:role "status"} (str "Zweryfikowane: " reviewed " z " valid " poprawnych wierszy. Wiersze z błędami: " (or (:invalid-rows batch) 0) ".")]
+     [:p {:role "status"} (str "Zapisane kompletne decyzje: " reviewed " z " valid " poprawnych wierszy. Wiersze z błędami: " (or (:invalid-rows batch) 0) ".")]
      [:progress {:max (max 1 valid) :value reviewed :aria-label "Postęp zapisanej weryfikacji"}]]))
 (defn queue-panel [{:keys [queue]}]
   [:section {:aria-busy (= :loading (:status queue))}
    [:h3 "Importy oczekujące na weryfikację"]
-   [:button {:type "button" :disabled (= :loading (:status queue)) :on-click #(rf/dispatch [:review/reload])} "Odśwież kolejkę"]
-   [error-panel (:error queue) #(rf/dispatch [:review/reload])]
+   [:button {:type "button" :disabled (= :loading (:status queue)) :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/reload]))} "Odśwież kolejkę"]
+   [error-panel (:error queue) #(when (decisions/allow-leave!) (rf/dispatch [:review/reload]))]
    (when (= :loading (:status queue)) [:p {:role "status"} "Pobieranie kolejki…"])
    (when (and (= :ready (:status queue)) (empty? (:batches queue))) [:p "Brak importów oczekujących na weryfikację."])
    [:ul {:class "review-batches"}
@@ -98,13 +99,13 @@
          [:button {:type "button" :aria-label (str "Porównaj profil " (:name donor) ", " (uploads/display-value (:city donor)))
                    :on-click #(rf/dispatch [:review/compare (:id donor)])} "Porównaj"]])]
      [pager search :review/search-page "Strony wyników wyszukiwania darczyńców"]]))
-(defn batch-panel [{:keys [work selected] :as state}]
+(defn batch-panel [{:keys [work selected] :as state} csrf]
   (let [row (some #(when (and (= (:worksheet selected) (:worksheet-index %)) (= (:row selected) (:row-number %))) %) (:rows work))]
     [:section {:aria-busy (= :loading (:status work))}
-     [:button {:type "button" :on-click #(rf/dispatch [:review/back])} "Wróć do kolejki"]
-     [:button {:type "button" :disabled (= :loading (:status work)) :on-click #(rf/dispatch [:review/reload])} "Odśwież wiersze i postęp"]
+     [:button {:type "button" :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/back]))} "Wróć do kolejki"]
+     [:button {:type "button" :disabled (= :loading (:status work)) :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/reload]))} "Odśwież wiersze i postęp"]
      (when-let [batch (:batch work)] [:<> [:h3 {:id "review-batch-heading" :tab-index -1 :ref uploads/focus-heading} (:original-filename batch)] [progress batch]])
-     [error-panel (:error work) #(rf/dispatch [:review/reload])]
+     [error-panel (:error work) #(when (decisions/allow-leave!) (rf/dispatch [:review/reload]))]
      (cond
        (= :loading (:status work)) [:p {:role "status"} "Pobieranie wierszy importu…"]
        (= :closed (:status work)) [:p {:role "status"} "Ten import nie oczekuje na weryfikację. Wróć do aktualnej kolejki."]
@@ -115,15 +116,16 @@
                    :on-change (fn [e]
                                 (let [value (.. e -target -value)
                                       row (some #(when (= value (str (:worksheet-index %) ":" (:row-number %))) %) (:rows work))]
-                                  (when row (rf/dispatch [:review/select-row (:worksheet-index row) (:row-number row)]))))}
+                                  (if (and row (decisions/allow-leave!)) (rf/dispatch [:review/select-row (:worksheet-index row) (:row-number row)]) (set! (.. e -target -value) (str (:worksheet selected) ":" (:row selected))))))}
           (for [row (:rows work)]
             ^{:key (str (:worksheet-index row) ":" (:row-number row))}
             [:option {:value (str (:worksheet-index row) ":" (:row-number row))}
              (str "Arkusz " (:worksheet-index row) ", wiersz " (:row-number row) (when (= "invalid" (:validation-state row)) " — błędy"))])]]
         [pager work :review/page "Strony wierszy importu"]
         [:div {:class "review-comparison"} [source-card row] [donor-card state]]
-        [search-panel state]])]))
-(defn panel [refresh-session route]
+        [search-panel state]
+        [decisions/panel state csrf]])]))
+(defn panel [refresh-session route csrf]
   (r/with-let [last-route (volatile! route)
                _ (rf/dispatch-sync [:review/open route])]
     (when (not= route @last-route)
@@ -133,10 +135,10 @@
       [:section {:class "review-screen" :aria-labelledby "review-heading"}
        [:h2 {:id "review-heading" :tab-index -1 :ref uploads/focus-heading} "Weryfikacja importów"]
        [:p "Porównaj oryginalny wiersz z wybranym profilem. Wyszukanie lub obejrzenie profilu nie zapisuje decyzji o powiązaniu."]
-       [:p {:class "import-development-note"} "Na tym etapie używaj wyłącznie danych syntetycznych. Zapisywanie decyzji będzie dostępne w kolejnym kroku."]
+       [:p {:class "import-development-note"} "Na tym etapie używaj wyłącznie danych syntetycznych. Zapis decyzji i podgląd nie stosują zmian w bazie darczyńców ani wpłat."]
        (case (:mode state)
          :session-error [:<> [:p {:role "alert"} (get errors (:error state))]
                          [:button {:type "button" :on-click refresh-session} "Odśwież sesję"]]
-         :batch [batch-panel state]
+         :batch [batch-panel state csrf]
          [queue-panel state])])
     (finally (rf/dispatch-sync [:review/close]))))

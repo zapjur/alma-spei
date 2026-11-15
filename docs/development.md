@@ -462,3 +462,23 @@ The UUID/page fragment restores the batch after reload. Search/selection is
 transient; rows/progress are reread from PostgreSQL. Newly staged imports show zero
 reviewed rows until #38 implements attributed decisions. See
 [task 37 delivery and verification](task-37-review-queue.md). Use synthetic data only.
+
+## Saved synthetic review decisions — Task #38
+
+Apply the fifth migration with `bb migrate`. In **Weryfikacja importów**, compare a
+profile and explicitly choose it, or manually create/reuse a proposed profile. Use
+**Zapisz decyzję dla wiersza**; comparison alone still saves nothing. Specify currency
+and evidence, choose payment disposition and confirm overlap review. Existing
+payment lookup is scoped to the chosen donor. No currency is preselected.
+
+Reload rereads the persisted row decision, reviewer/time and accepted versions. On
+a conflict or unknown save outcome, the draft stays visible and writing is disabled
+until explicit reload. Check history before deciding whether to resubmit. Preparing
+a preview requires complete current decisions for every source row; negative and
+invalid rows block it. Browse all effect/history/blocker pages. Preview does not
+apply imports; no commit/undo controls are provided yet. Use synthetic data only.
+
+`bb integration` includes isolated migration/grant/reversal, concurrent reviewer,
+rollback fault-injection, exact payment-reference, proposal-reuse and immutable
+preview checks. Portable JVM/JS contracts and UI state/transport tests run in
+`bb check`. See [task 38 delivery notes](task-38-review-decisions-proposal.md).
