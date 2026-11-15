@@ -306,3 +306,10 @@ QA to cards 47–49 in `AntoniLenart/alma-spei-tests`; existing application test
 with feature branches. The earlier plan/count of one remaining task 41 is superseded.
 No duplicate #41 implementation or external-QA completion is authorized/inferred.
 Task 50 is the next identified open application blocker, with no assigned co-authors.
+
+## CONFIRMED — guided workspace first slice
+
+The user explicitly approved the [UI redesign outline](ui-redesign.md): shell and
+sidebar, task-focused home, clearer upload/analysis, and shared visual foundations.
+No dependency, schema, API or domain-rule change is approved or needed. Later
+review/detail/confirmation layout redesign remains outside this first slice.

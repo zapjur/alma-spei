@@ -54,8 +54,8 @@ In terminal 2, start the frontend compiler with hot reload:
 bb ui
 ```
 
-After compilation completes, open **http://127.0.0.1:3000**. The Polish shell
-should display “Aplikacja jest gotowa.” Sign in using the generated temporary
+After compilation completes, open **http://127.0.0.1:3000**. The Polish login
+screen should appear. Sign in using the generated temporary
 password and choose a new password before continuing. Keep both terminal processes running.
 The backend command opens REPLy and starts an nREPL with cider middleware on
 loopback. Save a `.clj`/`.cljc` file under `src/api` or `src/common` to reload the
@@ -135,12 +135,12 @@ See [synthetic demo data](docs/task-33-synthetic-data.md). No real workbook data
 
 The backend also accepts bounded synthetic bank CSV/XLSX uploads with persisted
 row validation reports; see the [bank upload contract](docs/task-35-bank-parser-proposal.md).
-Open **Import przelewów** to upload a synthetic bank file and inspect its paged
+Open **Nowy import** in the sidebar to upload a synthetic bank file and inspect its paged
 validation report; see [the upload screen](docs/task-36-import-upload.md). Upload
 staging changes no donors or payments and does not establish currency or financial
 deduplication rules.
 
-Open **Weryfikacja importów** to reopen a staged bank batch, browse every row, and
+Open **Do weryfikacji** to reopen a staged bank batch, browse every row, and
 manually search/compare donor profiles side by side. The batch/page link survives
 reload. Browsing saves no linkage decision; see [the review queue](docs/task-37-review-queue.md).
 

@@ -164,6 +164,70 @@
   (when (navigation/allow-leave!) (set! (.-hash js/location) "#imports/history/0")))
 (defn purge-imports! []
   (rf/dispatch-sync [:execution/close]) (rf/dispatch-sync [:review/close]) (rf/dispatch-sync [:imports/close]))
+(defn nav-item [label active? disabled? action]
+  [:button {:type "button" :class (str "sidebar-link" (when active? " is-active"))
+            :aria-current (when active? "page") :disabled disabled? :on-click action} label])
+
+(defn home [state disabled?]
+  [:section {:class "home-screen" :aria-labelledby "home-heading"}
+   [:header {:class "page-heading"}
+    [:p {:class "eyebrow"} "TWOJE MIEJSCE PRACY"]
+    [:h2 {:id "home-heading"} "Od czego zaczynamy?"]
+    [:p "Znajdź darczyńcę lub przygotuj import nowych przelewów."]]
+   [:div {:class "task-grid"}
+    [:article {:class "task-card"}
+     [:span {:class "task-symbol" :aria-hidden true} "01"]
+     [:h3 "Baza darczyńców"]
+     [:p "Wyszukaj osobę lub organizację. Sprawdź dane kontaktowe i historię wpłat."]
+     [:button {:type "button" :class "button-primary" :disabled disabled?
+               :on-click #(navigate! state :donors)} "Znajdź darczyńcę"]]
+    [:article {:class "task-card"}
+     [:span {:class "task-symbol" :aria-hidden true} "02"]
+     [:h3 "Nowe przelewy"]
+     [:p "Wybierz plik bankowy. Krok po kroku sprawdzisz dane przed zapisaniem zmian."]
+     [:button {:type "button" :class "button-primary" :disabled disabled?
+               :on-click #(navigate! state :imports)} "Importuj przelewy"]]]
+   [:section {:class "resume-card" :aria-labelledby "resume-heading"}
+    [:div [:h3 {:id "resume-heading"} "Masz już rozpoczęty import?"]
+     [:p "Wróć do sprawdzania wierszy albo zobacz wynik wcześniejszego importu."]]
+    [:div {:class "resume-actions"}
+     [:button {:type "button" :disabled disabled? :on-click #(open-review! state)} "Wznów weryfikację"]
+     [:button {:type "button" :class "button-quiet" :disabled disabled? :on-click #(open-history! state)} "Historia importów"]]]
+   [:div {:class "home-guide"}
+    [:h3 "Jak działa import?"]
+    [:ol
+     [:li [:strong "Wybierz plik"] [:span "Prześlij przelewy z banku."]]
+     [:li [:strong "Sprawdź dane"] [:span "Przejrzyj błędy i przypisz darczyńców."]]
+     [:li [:strong "Zatwierdź zmiany"] [:span "Najpierw zobaczysz pełne podsumowanie."]]]]])
+
+(defn sidebar [state user screen disabled? busy]
+  (r/with-let [expanded? (r/atom false)]
+    [:aside {:class "app-sidebar" :aria-label "Panel aplikacji"}
+     [:div {:class "brand"} [:span {:class "brand-mark" :aria-hidden true} "a"]
+      [:div [:h1 "Alma Spei"] [:span "Baza darczyńców"]]]
+     [:button {:type "button" :class "sidebar-toggle" :aria-expanded @expanded? :aria-controls "sidebar-navigation"
+               :on-click #(swap! expanded? not)} (if @expanded? "Zamknij menu" "Menu")]
+     [:div {:id "sidebar-navigation" :class (str "sidebar-menu" (when @expanded? " is-open"))}
+      [:nav {:class "sidebar-nav" :aria-label "Nawigacja główna"}
+       (when-not (:password-change-required user)
+         [:<>
+          [nav-item "Start" (= screen :home) disabled? #(navigate! state :home)]
+          [nav-item "Darczyńcy" (= screen :donors) disabled? #(navigate! state :donors)]
+          [:p {:class "nav-group-label"} "IMPORTY"]
+          [nav-item "Nowy import" (= screen :imports) disabled? #(navigate! state :imports)]
+          [nav-item "Do weryfikacji" (= screen :review) disabled? #(open-review! state)]
+          [nav-item "Historia importów" (= screen :execution) disabled? #(open-history! state)]
+          [:p {:class "nav-group-label"} "USTAWIENIA"]
+          [nav-item "Zmień hasło" (= screen :password) disabled? #(navigate! state :password)]
+          (when (:administrator user)
+            [nav-item "Konta użytkowników" (= screen :accounts) disabled?
+             #(when (navigate! state :accounts) (request! state :accounts "/api/accounts" "GET" nil))])])]
+      [:div {:class "sidebar-account"}
+       [:span {:class "account-label"} "Zalogowano jako"] [:strong (:display-name user)]
+       [:button {:type "button" :class "button-quiet" :disabled busy
+                 :on-click #(do (purge-imports!) (.replaceState js/history nil "" (str (.-pathname js/location) (.-search js/location)))
+                                (request! state :logout "/api/auth/logout" "POST" {}))} "Wyloguj się"]]]]))
+
 (defn panel []
   (r/with-let [route (review-location/parse (.-hash js/location))
                execution-route (execution-location/parse (.-hash js/location))
@@ -172,48 +236,28 @@
                _ (.addEventListener js/window "hashchange" hash-handler)
                _ (request! state :session "/api/auth/session" "GET" nil)]
     (let [{:keys [user csrf screen busy error temporary-password]} @state
-          operation? (navigation/operation?)]
-      [:section {:aria-busy busy}
-       (when error [:p {:role "alert"} error])
-       (when busy [:p {:role "status"} "Proszę czekać…"])
-       (when temporary-password
-         [:aside {:role "status"}
-          [:p "Hasło tymczasowe — przekaż je bezpiecznie. Po zamknięciu nie będzie można go ponownie wyświetlić."]
-          [:output temporary-password]
-          [:button {:on-click #(swap! state assoc :temporary-password nil)} "Zamknij hasło"]])
-       (cond
-         (nil? csrf) [:button {:disabled busy :on-click #(request! state :session "/api/auth/session" "GET" nil)} "Ponów połączenie"]
-         (nil? user) [login-form state]
-         :else
-         [:<>
-          [:p (str "Zalogowano: " (:display-name user))]
-          [:nav
-           (when-not (:password-change-required user)
-             [:<>
-              [:button {:disabled (or busy operation?) :on-click #(navigate! state :home)} "Start"]
-              [:button {:disabled (or busy operation?) :on-click #(navigate! state :donors)} "Darczyńcy"]
-              [:button {:disabled (or busy operation?) :on-click #(navigate! state :imports)} "Import przelewów"]
-              [:button {:disabled (or busy operation?) :on-click #(open-review! state)} "Weryfikacja importów"]
-              [:button {:disabled (or busy operation?) :on-click #(open-history! state)} "Historia importów"]
-              [:button {:disabled (or busy operation?) :on-click #(navigate! state :password)} "Zmień hasło"]
-              (when (:administrator user)
-                [:button {:disabled (or busy operation?)
-                          :on-click #(do (navigate! state :accounts)
-                                         (request! state :accounts "/api/accounts" "GET" nil))} "Konta użytkowników"])])
-           [:button {:disabled busy :on-click #(do (purge-imports!) (.replaceState js/history nil "" (str (.-pathname js/location) (.-search js/location))) (request! state :logout "/api/auth/logout" "POST" {}))} "Wyloguj się"]]
-          (cond
-            (or (:password-change-required user) (= screen :password)) [password-form state]
-            (and (= screen :accounts) (:administrator user)) [accounts state]
-            (= screen :execution) [execution/panel #(request! state :session "/api/auth/session" "GET" nil) csrf (:execution-route @state)]
-            (= screen :review) [review/panel #(request! state :session "/api/auth/session" "GET" nil) (:review-route @state) csrf]
-            (= screen :imports) [imports/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
-            (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
-            :else [:section
-                   [:h2 "Start"]
-                   [:p "Wybierz zadanie, aby rozpocząć pracę."]
-                   [:button {:type "button" :disabled busy
-                             :on-click #(navigate! state :donors)} "Przejdź do darczyńców"]
-                   [:button {:type "button" :disabled busy
-                             :on-click #(navigate! state :imports)} "Prześlij plik bankowy"]
-                   [:button {:type "button" :disabled busy :on-click #(open-review! state)} "Otwórz kolejkę weryfikacji"]])])])
+          disabled? (or busy (navigation/operation?))]
+      [:div {:class (if user "workspace" "signin-shell")}
+       (when user [sidebar state user screen disabled? busy])
+       [:main {:id "workspace-content" :class (if user "workspace-content" "signin-content") :tab-index -1 :aria-busy busy}
+        (when-not user
+          [:div {:class "brand signin-brand"} [:span {:class "brand-mark" :aria-hidden true} "a"]
+           [:div [:h1 "Alma Spei"] [:span "Baza darczyńców"]]])
+        (when error [:p {:role "alert" :class "notice notice-error"} error])
+        (when busy [:p {:role "status"} "Proszę czekać…"])
+        (when temporary-password
+          [:aside {:role "status"}
+           [:p "Hasło tymczasowe — przekaż je bezpiecznie. Po zamknięciu nie będzie można go ponownie wyświetlić."]
+           [:output temporary-password]
+           [:button {:on-click #(swap! state assoc :temporary-password nil)} "Zamknij hasło"]])
+        (cond
+          (nil? csrf) [:button {:disabled busy :on-click #(request! state :session "/api/auth/session" "GET" nil)} "Ponów połączenie"]
+          (nil? user) [login-form state]
+          (or (:password-change-required user) (= screen :password)) [password-form state]
+          (and (= screen :accounts) (:administrator user)) [accounts state]
+          (= screen :execution) [execution/panel #(request! state :session "/api/auth/session" "GET" nil) csrf (:execution-route @state)]
+          (= screen :review) [review/panel #(request! state :session "/api/auth/session" "GET" nil) (:review-route @state) csrf]
+          (= screen :imports) [imports/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
+          (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
+          :else [home state disabled?])]])
     (finally (.removeEventListener js/window "hashchange" hash-handler) (reset! state {}))))

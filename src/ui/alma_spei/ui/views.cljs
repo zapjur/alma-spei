@@ -10,10 +10,12 @@
 
 (defn app []
   (let [status @(rf/subscribe [:health/status])]
-    [:main
-     [:h1 "Alma Spei"]
-     [:p "Baza darczyńców"]
-     [:p {:role "status" :aria-live "polite"} (get messages status)]
-     [auth/panel]
-     [:button {:type "button" :disabled (= :loading status)
-               :on-click #(rf/dispatch [:app/initialize])} "Sprawdź ponownie"]]))
+    [:<>
+     [:a {:class "skip-link" :href "#workspace-content"
+          :on-click (fn [event] (.preventDefault event) (some-> (js/document.getElementById "workspace-content") .focus))}
+      "Przejdź do treści"]
+     (when (#{:unavailable :invalid} status)
+       [:div {:class "connection-notice" :role "status"}
+        [:span (get messages status)]
+        [:button {:type "button" :on-click #(rf/dispatch [:app/initialize])} "Sprawdź ponownie"]])
+     [auth/panel]]))
