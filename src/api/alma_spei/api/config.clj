@@ -7,6 +7,7 @@
 (def schema
   [:map
    [:environment [:enum :development :test]]
+   [:synthetic-imports {:optional true} :boolean]
    [:http [:map [:host :string] [:port [:int {:min 1 :max 65535}]]]]
    [:database [:map [:host :string] [:port [:int {:min 1 :max 65535}]]
                [:name [:string {:min 1}]] [:user [:string {:min 1}]]
@@ -44,6 +45,8 @@
                                 c)) config overrides)
           config (cond-> config
                    (get env "ALMA_ENV") (assoc :environment (keyword (get env "ALMA_ENV"))))
+          _ (when-not (contains? #{nil "true" "false"} (get env "ALMA_SYNTHETIC_IMPORTS")) (throw (ex-info "Invalid synthetic mode configuration" {})))
+          config (cond-> config (contains? env "ALMA_SYNTHETIC_IMPORTS") (assoc :synthetic-imports (= "true" (get env "ALMA_SYNTHETIC_IMPORTS"))))
           secret (if secret-file
                    (try (str/trim-newline (read-secret secret-file))
                         (catch Exception _ (throw (ex-info "Cannot read database secret file" {}))))
@@ -68,5 +71,5 @@
            _ (when (contains? resolved :auth) (throw (ex-info "Authentication uses explicit local defaults and a protected secret file" {})))
            host (get-in resolved [:http :host])
            origin (str "http://" (if (= host "::1") "[::1]" host) ":" (get-in resolved [:http :port]))]
-       (assoc resolved :auth {:csrf-secret secret :origin origin :secure-cookie false}))
+       (assoc resolved :auth {:csrf-secret secret :origin origin :secure-cookie false :environment (:environment resolved) :synthetic-imports (true? (:synthetic-imports resolved))}))
      (catch Exception _ (throw (ex-info "Cannot load application configuration; check required settings" {}))))))

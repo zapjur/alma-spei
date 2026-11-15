@@ -8,7 +8,7 @@
 (defn ready []
   (let [db (review/loaded-work) id (get-in db [:review :editor :request-id])]
     (:db (events/loaded db [:decision/loaded [:editor] id :decision-load
-                            {:data {:batch fixture/batch :row fixture/row :decision nil}}]))))
+                            {:data {:catalog-version 5 :batch fixture/batch :row fixture/row :decision nil}}]))))
 (defn selected [] (events/choose-target (ready) [:decision/target "existing-donor" fixture/other-id 3]))
 (deftest selection-is-explicit-and-does-not-supply-currency-or-save
   (let [db (selected) input (events/build-input (:review db))]
@@ -41,8 +41,9 @@
   (let [db (selected) started (events/load-aux db [:decision/aux :proposals 25])
         id (get-in started [:decision/request :request-id])
         result (events/loaded (:db started) [:decision/loaded [:aux :proposals] id :proposals
-                                             {:data {:batch (assoc fixture/batch :version 999) :proposals [] :limit 25 :offset 25 :total 25}}])]
+                                             {:data {:catalog-version 999 :batch (assoc fixture/batch :version 999) :proposals [] :limit 25 :offset 25 :total 25}}])]
     (is (= (:version fixture/batch) (get-in result [:db :review :editor :batch-version])))
+    (is (= 5 (get-in result [:db :review :editor :catalog-version])))
     (is (= 25 (get-in started [:decision/request :offset])))))
 (deftest proposal-form-starts-empty-and-success-does-not-select-it
   (let [db (events/proposal-form (ready) [:decision/proposal-form nil])
@@ -52,7 +53,7 @@
                     (events/proposal-check [:decision/proposal-check :checked-proposals true]))
         saving (events/save-proposal checked [:decision/proposal-save "synthetic"])
         result (events/loaded (:db saving) [:decision/loaded [:editor] (get-in saving [:decision/request :request-id]) :proposal-create
-                                            {:data {:batch (assoc fixture/batch :version 2) :proposal {:id fixture/other-id :version 1}}}])]
+                                            {:data {:catalog-version 5 :batch (assoc fixture/batch :version 2) :proposal {:id fixture/other-id :version 1}}}])]
     (is (not (events/proposal-saveable? (:review db))))
     (is (events/proposal-saveable? (:review checked)))
     (is (events/dirty? (:review checked)))
@@ -83,3 +84,9 @@
                             (is (= "synthetic" (get-in @calls [0 1 :headers :X-CSRF-Token])))
                             (is (= [[:decision/loaded [:editor] 1 :decision-save {:error :uncertain}]] @replies))
                             (done)) 20))))
+
+(deftest proposal-edit-response-cannot-renew-old-financial-evidence
+  (let [db (ready) request (events/request db [:editor] :proposal-update {})
+        result (events/loaded (:db request) [:decision/loaded [:editor] (get-in request [:decision/request :request-id]) :proposal-update
+                                             {:data {:catalog-version 999 :batch fixture/batch :proposal {}}}])]
+    (is (= 5 (get-in result [:db :review :editor :catalog-version])))))

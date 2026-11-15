@@ -95,3 +95,26 @@ audit retention and incident access, loss-of-all-administrators recovery, target
 hardware Argon2id capacity, and dependency vulnerability review are deployment
 gates. Rotating the CSRF signing file invalidates open forms; server sessions
 remain separately revocable. No real personal data may be used in development.
+
+## Synthetic import execution boundary — Task #39
+
+The [approved development execution](task-39-import-commit-undo-proposal.md) adds a
+server-side backup-provider boundary. Commit fails closed without an enabled provider.
+`ALMA_SYNTHETIC_IMPORTS=true` explicitly enables only `synthetic-test-v1` in the
+already restricted development/test runtime. It issues labelled receipts, with a
+five-minute test lifetime, but makes no dump and provides no recovery guarantee.
+It must never be used with real personal data. No HTTP flag or staff assertion can
+skip the gate. A real provider, evidence checks, artifact storage/encryption, freshness
+policy, daily automation and restore drills still require hospice IT approval.
+
+Receipts bind exact preview/digest/catalogue/batch versions. A canonical change
+during provider execution invalidates the result; commit rechecks expiry/binding.
+Only successful usable receipts are stored; provider failures expose fixed safe
+errors. No path, credential or raw backup payload appears in application responses.
+
+Undo is compensation, never restore: append reversals, archive unchanged created
+donors, retain history, and stop on later-work conflicts. Schema downgrade refuses
+any execution history because removing reversal filtering could reactivate payments.
+Plan an approved forward fix or recovery rather than bypassing that guard. All
+new canonical writers must acquire the catalogue advisory gate before entity locks;
+maintenance SQL outside that protocol requires a separately controlled write outage.

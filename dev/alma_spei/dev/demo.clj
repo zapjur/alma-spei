@@ -1,5 +1,6 @@
 (ns alma-spei.dev.demo
   (:require [alma-spei.api.audit.donors :as audit]
+            [alma-spei.api.catalog :as catalog]
             [alma-spei.api.config :as config]
             [alma-spei.api.db.core :as db]
             [alma-spei.api.donors.repository :as repository]
@@ -45,7 +46,7 @@
 (defn existing-state [tx {:keys [donors payments]}]
   (let [donor-ids (mapv :id donors)
         existing-donors (selected-rows tx "donors" donor-ids)
-        existing-payments (selected-rows tx "donations" (mapv :id payments))]
+        existing-payments (selected-rows tx "active_donations" (mapv :id payments))]
     (if (and (empty? existing-donors) (empty? existing-payments))
       :empty
       (let [created (repository/query tx (into [(str "SELECT DISTINCT donor_id FROM donor_audit_events WHERE action='create' AND donor_id IN ("
@@ -74,6 +75,7 @@
   (let [fixtures (data/dataset)]
     (validate-data! fixtures)
     (jdbc/with-transaction [tx (db/datasource (:database settings))]
+      (catalog/lock! tx)
       ;; Serialize this developer command without using the authentication mutation lock.
       (repository/query tx ["SELECT pg_advisory_xact_lock(20971233)"])
       (let [target (repository/one tx ["SELECT current_database() AS database_name, current_user AS user_name"])]

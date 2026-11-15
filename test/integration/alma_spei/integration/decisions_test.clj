@@ -3,6 +3,7 @@
             [alma-spei.integration.review-test :as review-fixture]
             [alma-spei.integration.database-test :as database]
             [alma-spei.api.auth.service :as auth]
+            [alma-spei.api.catalog :as catalog]
             [alma-spei.api.imports.repository :as repository]
             [alma-spei.api.imports.decision-repository :as decisions-repository]
             [alma-spei.api.imports.decisions :as decisions]
@@ -35,13 +36,13 @@
 (defn path [batch suffix] (str "/api/imports/" (:id batch) suffix))
 (def financial {:currency "PLN" :evidence "Synthetic currency and overlap evidence" :disposition "new" :overlap-checked true})
 (defn input [batch donor]
-  {:batch-version (:version batch) :version 0 :kind "existing-donor" :donor-id (:id donor) :proposal-id nil :target-version (:version donor)
+  {:catalog-version (catalog/version (ds)) :batch-version (:version batch) :version 0 :kind "existing-donor" :donor-id (:id donor) :proposal-id nil :target-version (:version donor)
    :financial financial :donation-id nil :donation-version nil})
 (defn save [batch input] (call :put (path batch "/rows/1/1/decision") input))
 (defn count-of [table] (:n (repository/one (ds) [(str "SELECT count(*) AS n FROM " table)])))
-(defn canonical [] (mapv #(repository/query (ds) [(str "SELECT * FROM " %)]) ["donors" "donations" "donor_audit_events" "donor_audit_changes"]))
+(defn canonical [] (mapv #(mapv (fn [row] (dissoc row :import-batch-id)) (repository/query (ds) [(str "SELECT * FROM " %)])) ["donors" "donations" "donor_audit_events" "donor_audit_changes"]))
 (defn propose [batch profile]
-  (call :post (path batch "/donor-proposals") {:batch-version (:version batch) :profile profile :checked-existing true :checked-proposals true}))
+  (call :post (path batch "/donor-proposals") {:catalog-version (catalog/version (ds)) :batch-version (:version batch) :profile profile :checked-existing true :checked-proposals true}))
 (defn preview [batch] (call :post (path batch "/preview") {:batch-version (:version batch)}))
 (defn updated-batch [response] (get-in response [:body :batch]))
 (defn donation! [donor]
@@ -68,7 +69,7 @@
     (is (= 1 (count-of "import_review_events")))
     (is (= before (canonical)))
     (is (= "review" (get-in (call :get (path batch "") nil) [:body :batch :state])))
-    (let [cleared (save current {:batch-version 3 :version 1 :kind "unresolved" :donor-id nil :proposal-id nil :target-version nil
+    (let [cleared (save current {:catalog-version (catalog/version (ds)) :batch-version 3 :version 1 :kind "unresolved" :donor-id nil :proposal-id nil :target-version nil
                                  :financial nil :donation-id nil :donation-version nil})]
       (is (= 200 (:status cleared)))
       (is (= 0 (get-in cleared [:body :batch :reviewed-rows])))
@@ -81,7 +82,7 @@
     (let [batch (batch (str "2026-01-02;Synthetic " type ";;12.3400\n2026-01-02;Synthetic " type ";;12.3400\n"))
           created (propose batch {:entity-type type :name (str "Synthetic " type) :city "Synthetic City"})
           proposal (get-in created [:body :proposal])
-          decision {:batch-version (get-in created [:body :batch :version]) :version 0 :kind "new-proposal" :donor-id nil
+          decision {:catalog-version (catalog/version (ds)) :batch-version (get-in created [:body :batch :version]) :version 0 :kind "new-proposal" :donor-id nil
                     :proposal-id (:id proposal) :target-version 1 :financial financial :donation-id nil :donation-version nil}
           first (save batch decision)
           second (call :put (path batch "/rows/1/2/decision") (assoc decision :batch-version (get-in first [:body :batch :version])))
@@ -116,7 +117,7 @@
         saved (save batch (input batch donor))]
     (repository/query (ds) ["UPDATE donors SET version=version+1,name='Synthetic Changed' WHERE id=?" (UUID/fromString (:id donor))])
     (is (= 409 (:status (preview (updated-batch saved)))))
-    (is (= "stale-target" (get-in (call :get (path batch "/review-blockers") nil) [:body :blockers 0 :code]))))
+    (is (= "stale-catalog" (get-in (call :get (path batch "/review-blockers") nil) [:body :blockers 0 :code]))))
   (is (= 0 (count-of "import_previews"))))
 
 (deftest ready-preview-is-complete-immutable-paged-and-stales-after-decision-changes
@@ -158,7 +159,7 @@
   (let [a (batch) b (batch "2026-01-02;Synthetic Other;;12.3400\n")
         created (propose a {:entity-type "individual" :name "Synthetic New" :city "Synthetic City"})
         proposal (get-in created [:body :proposal]) current (updated-batch created)
-        request {:batch-version (:version current) :version 0 :kind "new-proposal" :donor-id nil :proposal-id (:id proposal)
+        request {:catalog-version (catalog/version (ds)) :batch-version (:version current) :version 0 :kind "new-proposal" :donor-id nil :proposal-id (:id proposal)
                  :target-version 1 :financial financial :donation-id nil :donation-version nil}]
     (is (= 404 (:status (save b (assoc request :batch-version (:version b))))))
     (let [saved (save current request) edited (call :put (path a (str "/donor-proposals/" (:id proposal)))
@@ -208,11 +209,11 @@
                      (repository/query (ds) ["INSERT INTO import_preview_items(preview_id,ordinal,kind,payload) VALUES (?,99,'new-payment','{}'::jsonb)"
                                              (UUID/fromString (get-in ready [:body :preview :id]))])
                      nil (catch SQLException e (.getSQLState e)))))
-    (database/rollback-latest! cfg)
+    (dotimes [_ 2] (database/rollback-latest! cfg))
     (is (= before (canonical)))
     (migratus/migrate cfg)
     (is (= 0 (count-of "import_review_events")))
-    (is (= 5 (:n (repository/one (:migrator database/*database*) ["SELECT count(*) AS n FROM schema_migrations"]))))))
+    (is (= 6 (:n (repository/one (:migrator database/*database*) ["SELECT count(*) AS n FROM schema_migrations"]))))))
 
 (deftest authorization-closed-inputs-and-archived-targets
   (let [batch (batch) donor (review-fixture/create-donor "Synthetic Archived" false) input (input batch donor)
