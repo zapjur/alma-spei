@@ -34,7 +34,7 @@
 
 (defn upload-form [state csrf]
   (r/with-let [confirmed (r/atom false)]
-    (let [retry? (= :failed (:status state)) busy? (= :uploading (:status state))
+    (let [retry? (contains? #{:failed :retry-ready} (:status state)) busy? (= :uploading (:status state))
           file (:file state) selectable? (events/selectable? state)]
       [:form {:class "import-form" :aria-label "Przesyłanie pliku bankowego"
               :on-submit (fn [event]
@@ -125,8 +125,8 @@
    [:button {:type "button" :disabled (not (and (= status :ready) (< (+ offset limit) total)))
              :on-click #(rf/dispatch [:imports/page :next])} "Następne wiersze"]])
 
-(defn panel [refresh-session csrf]
-  (r/with-let [_ (rf/dispatch-sync [:imports/open])]
+(defn panel [refresh-session csrf & [reimport-batch]]
+  (r/with-let [_ (rf/dispatch-sync [:imports/open reimport-batch])]
     (let [{:keys [status error batch batch-id] :as state} @(rf/subscribe [:imports/state])
           session-error? (= :session-error status)
           report? (#{:ready :loading :page-error} status)]
@@ -134,7 +134,8 @@
        [:h2 {:id "import-heading" :tab-index -1 :ref focus-heading} "Import przelewów bankowych"]
        [:p "Prześlij plik i sprawdź raport analizy. Dopasowanie darczyńców i zatwierdzenie zmian nastąpią w kolejnych krokach."]
        [:p {:class "import-development-note"} "Na tym etapie używaj wyłącznie danych syntetycznych."]
-       (when error [:div {:role "alert"} [:p (get errors error "Nie udało się przeanalizować pliku.")]])
+       (when error [:div {:role "alert"} [:p (get errors error "Nie udało się przeanalizować pliku.")]
+                    (when (= :duplicate error) [:a {:href "#imports/history/0"} "Otwórz historię importów"])])
        (cond
          session-error? [:button {:type "button" :on-click refresh-session} "Odśwież sesję"]
          report? [:<>
@@ -144,10 +145,11 @@
                   [:button {:type "button" :disabled (= :loading status) :on-click #(rf/dispatch [:imports/reload])} "Odśwież raport"]
                   (when (= "review" (:state batch))
                     [:a {:href (str "#review/" (:id batch) "/0") :class "review-open"} "Przejdź do weryfikacji"])]
-         (= :uncertain status) [:p "Możesz sprawdzić znany import albo rozpocząć nowe przesyłanie. Ponowne przesłanie zapisanych już danych zostanie rozpoznane jako duplikat."]
+         (= :uncertain status) [:div [:p "Możesz sprawdzić znany import albo odszukać nową próbę w historii. Nie przesyłamy pliku ponownie automatycznie."]
+                                [:a {:href "#imports/history/0"} "Otwórz historię importów"]]
          :else [:<>
                 (when batch [summary state])
-                (when (or (nil? batch) (= status :failed) (= status :uploading))
+                (when (or (nil? batch) (contains? #{:failed :retry-ready :uploading} status))
                   ^{:key (str (:form-key state) ":" (if (= status :failed) "retry" "upload"))} [upload-form state csrf])
                 (when (= :uploading status) [progress-panel state])])
        (when (and (not session-error?) (not (events/active? state)))

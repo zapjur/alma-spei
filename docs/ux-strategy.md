@@ -30,3 +30,18 @@ Hospice staff, potentially with varied technical skills. Keep all end-user conte
 ## Open UX details
 
 Actual filters/columns, export selections, accessibility target, navigation structure, visual identity and whether employees require printouts depend on stakeholder review.
+
+## Delivered synthetic import confirmation — Task #40
+
+The [approved screens](task-40-import-summary-proposal.md) provide separate final
+confirmation, history and outcome views, with exact per-currency totals and every
+effect/blocker page. Default-disabled mode has a plain explanation. Synthetic mode
+explicitly states that no real backup exists and requires unchecked consent after
+an explicit test receipt request. No approval is inferred from browsing.
+
+Native undo dialogs focus cancellation first, retain focus while modal, support
+Escape before submission and return focus to the trigger on cancellation. In-flight
+mutations block competing internal navigation and warn on unload; logout always
+purges private data. Unknown outcomes offer authoritative reads, with explicit exact-
+request retry only when needed. Keyboard and narrow-screen behavior are verified
+with synthetic data; this is not a production accessibility/compliance certification.

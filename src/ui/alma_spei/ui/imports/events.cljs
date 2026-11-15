@@ -17,7 +17,10 @@
   (and (:file state) (not (file-error (:file state)))
        (or (not (csv? (:file state))) (contains? #{"," ";"} (:separator state)))))
 (defn next-id [db] (inc (get db :imports-sequence 0)))
-(defn open [db _] (-> db (assoc :imports (assoc initial-state :form-key (next-id db))) (assoc :imports-sequence (next-id db))))
+(defn open [db [_ batch]]
+  (-> db (assoc :imports (cond-> (assoc initial-state :form-key (next-id db))
+                           (and batch (= "bank" (:source-type batch)) (= "undone" (:state batch))) (assoc :status :retry-ready :batch batch)))
+      (assoc :imports-sequence (next-id db))))
 (defn close [db _] {:db (-> db (dissoc :imports) (assoc :imports-sequence (next-id db))) :imports/abort nil})
 (defn choose-file [db [_ file]]
   (if (and (:imports db) (not (active? (:imports db))))
@@ -27,10 +30,11 @@
     (assoc-in db [:imports :separator] value) db))
 (defn start [db [_ file csrf retry? confirmed?]]
   (let [state (:imports db) batch (:batch state)]
-    (if (and (#{:idle :error :failed} (:status state)) (selectable? state)
+    (if (and (#{:idle :error :failed :retry-ready} (:status state)) (selectable? state)
              file csrf
              (or (and (not retry?) (nil? batch))
-                 (and retry? confirmed? (= :failed (:status state)) (= "failed" (:state batch)))))
+                 (and retry? confirmed? (or (and (= :failed (:status state)) (= "failed" (:state batch)))
+                                            (and (= :retry-ready (:status state)) (= "undone" (:state batch)))))))
       (let [id (next-id db)]
         {:db (-> db (assoc :imports-sequence id)
                  (update :imports assoc :status :uploading :request-id id :error nil :progress nil :sent? false :rows []))
@@ -41,13 +45,16 @@
   (if (and (= id (get-in db [:imports :request-id])) (= :uploading (get-in db [:imports :status])))
     (update db :imports assoc :progress percent :sent? sent?) db))
 (defn purge [db error]
-  (-> db (assoc :imports (assoc initial-state :status :session-error :error error))
+  (-> db (dissoc :review) (assoc :execution {:session-error error})
+      (assoc :imports (assoc initial-state :status :session-error :error error))
       (assoc :imports-sequence (next-id db))))
+(defn purge-result [db error]
+  {:db (purge db error) :imports/abort nil :review/abort nil :decision/abort nil :execution/abort nil})
 (defn finished [db [_ id {:keys [data error batch batch-id]}]]
   (if (not= id (get-in db [:imports :request-id]))
     {:db db}
     (cond
-      (#{:unauthenticated :forbidden} error) {:db (purge db error)}
+      (#{:unauthenticated :forbidden} error) (purge-result db error)
       data {:db (update db :imports #(-> % (assoc :status :ready :batch (:batch data) :rows (:rows data)
                                                   :total (:total data) :offset (:offset data) :limit (:limit data)
                                                   :skipped-empty-rows (:skipped-empty-rows data) :file nil :error nil)
@@ -56,12 +63,12 @@
                          #(cond-> (assoc % :error error :rows [] :status (cond
                                                                            batch :failed
                                                                            (or batch-id (= error :uncertain)) :uncertain
-                                                                           :else :error))
+                                                                           :else (if (and (= error :retry-conflict) (= "undone" (get-in % [:batch :state]))) :retry-ready :error)))
                             batch (assoc :batch batch :file nil)
                             batch-id (assoc :batch-id batch-id)))})))
 
 (defn load-page [db offset]
-  (let [state (:imports db) id (next-id db) batch-id (or (get-in state [:batch :id]) (:batch-id state))]
+  (let [state (:imports db) id (next-id db) batch-id (or (:batch-id state) (get-in state [:batch :id]))]
     (if (and state batch-id (not (active? state)))
       {:db (-> db (assoc :imports-sequence id)
                (update :imports assoc :status :loading :request-id id :offset offset :rows [] :error nil))
@@ -77,7 +84,7 @@
 (defn page-loaded [db [_ id {:keys [data error]}]]
   (if (not= id (get-in db [:imports :request-id])) {:db db}
       (cond
-        (#{:unauthenticated :forbidden} error) {:db (purge db error)}
+        (#{:unauthenticated :forbidden} error) (purge-result db error)
         error {:db (update db :imports assoc :status :page-error :error error :rows [])}
         :else {:db (update db :imports #(-> % (assoc :status (if (= "failed" (get-in data [:batch :state])) :failed :ready)
                                                      :batch (:batch data) :rows (:rows data) :total (:total data)

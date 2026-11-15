@@ -16,8 +16,10 @@
                      [:batch-version decisions/version] [:summary decisions/summary] [:backup backup]])
 (def undo-receipt [:map {:closed true} [:id imports/identifier] [:actor-id imports/identifier] [:actor-name :string]
                    [:occurred-at :string] [:batch-version decisions/version] [:reversed-payments imports/row-count] [:archived-donors imports/row-count]])
-(def outcome [:map {:closed true} [:batch imports/batch] [:commit [:maybe commit-receipt]] [:undo [:maybe undo-receipt]]])
-(def history [:map {:closed true} [:batches [:vector imports/batch]] [:total imports/row-count] [:limit decisions/version] [:offset imports/row-count]])
+(def capabilities [:map {:closed true} [:commit-enabled :boolean] [:mode [:enum "disabled" "synthetic-test-v1"]]])
+(def uploader [:map {:closed true} [:id imports/identifier] [:display-name :string]])
+(def outcome [:map {:closed true} [:uploaded-by-name :string] [:batch imports/batch] [:commit [:maybe commit-receipt]] [:undo [:maybe undo-receipt]]])
+(def history [:map {:closed true} [:uploaders [:vector uploader]] [:batches [:vector imports/batch]] [:total imports/row-count] [:limit decisions/version] [:offset imports/row-count]])
 (def conflict [:map {:closed true} [:code [:enum "not-latest" "already-undone" "not-committed" "changed-donor" "changed-payment" "dependent-records"]]
                [:entity-id [:maybe imports/identifier]]])
 (def eligibility [:map {:closed true} [:batch imports/batch] [:commit-id [:maybe imports/identifier]] [:eligible :boolean]

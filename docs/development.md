@@ -510,3 +510,37 @@ All app canonical writers, including manual donor edits and `bb seed-demo`, shar
 a catalogue gate. Canonical changes invalidate prior review evidence globally. This
 can require re-review of unrelated rows; it deliberately favors correctness. The
 used-database downgrade guard is not a backup/restore mechanism.
+
+## Confirmation, history and undo screens — Task #40
+
+**Historia importów** pages retained attempts with uploader labels and technical
+row counts. Open an outcome to inspect attributed commit/undo receipts, original
+preview, all applied effects and paged eligibility reasons. Upload dates and commit
+dates are separate. Only current server eligibility permits **Cofnij ostatni import**;
+a modal explains compensation and requires explicit confirmation. Later edits or
+references stop undo and remain intact.
+
+In review, prepare a current v2 preview and choose **Przejdź do zatwierdzenia**. The
+screen starts with reads only. Default-disabled configuration explains unavailable
+commit. When `ALMA_SYNTHETIC_IMPORTS=true` is explicitly enabled for synthetic local
+use, request a labelled test confirmation, review every effect page, acknowledge
+the synthetic limitation and press **Zatwierdź import testowy**. The fake adapter
+creates no recoverable backup. Expiry or changed context clears/disables consent;
+stale evidence must be reviewed again. A final metadata read precedes POST commit.
+
+A lost response never triggers automatic retry. **Sprawdź wynik** reads authoritative
+state. If the original request has not been confirmed, an explicitly chosen retry
+uses the exact original transient request; no new approval context is fabricated.
+Reload discards pending requests/consent and resumes protected reads. Fetch waits
+are bounded at 120 seconds; transport abort does not promise server rollback.
+
+An undone outcome offers **Wczytaj ten sam plik ponownie**. Staff must select a fresh
+file, CSV separator and confirmation. The existing multipart protocol verifies
+original bytes and creates a fresh attempt with zero review. Unknown upload results
+link to history; known successor IDs take precedence over old predecessor metadata.
+No old file, decision, financial assertion, backup or approval is copied.
+
+Reloadable fragments contain only UUIDs and page offsets: `#imports/history/0`,
+`#imports/batch/<uuid>/0`, `#imports/confirm/<batch>/<preview>/0`, and
+`#imports/reimport/<uuid>`. Existing `#review/...` links remain supported. Logout
+and auth failures clear private import state, including nested upload state.

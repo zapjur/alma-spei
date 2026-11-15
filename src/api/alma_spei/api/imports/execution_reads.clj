@@ -15,7 +15,8 @@
     (let [limit (get input :limit 25) offset (get input :offset 0)]
       (if (= :history action)
         (let [result (repository/history tx limit offset)]
-          {:batches (mapv imports/public-batch (:batches result)) :total (:total result) :limit limit :offset offset})
+          {:uploaders (vec (distinct (map (fn [batch] {:id (str (:created-by batch)) :display-name (:uploaded-by-name batch)}) (:batches result))))
+           :batches (mapv imports/public-batch (:batches result)) :total (:total result) :limit limit :offset offset})
         (let [batch (review/batch! tx id)]
           (case action
             :outcome (execution/outcome tx (:id batch))
