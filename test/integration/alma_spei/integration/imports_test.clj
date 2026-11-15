@@ -43,13 +43,13 @@
 (deftest upgrade-and-test-only-rollback-preserve-existing-domain-and-auth
   (let [migrator (:migrator fixture/*database*) cfg (migrations/migration-config migrator)
         donor (UUID/randomUUID) actor (get-in *context* [:a :id])]
-    (migratus/rollback cfg)
+    (fixture/rollback-latest! cfg)
     (repository/query (ds) ["INSERT INTO donors(id,entity_type,name,created_by,updated_by) VALUES (?,'individual','Synthetic Existing',?,?)" donor actor actor])
     (migratus/migrate cfg)
     (is (= 4 (count (repository/query migrator ["SELECT * FROM schema_migrations"]))))
     (is (= "Synthetic Existing" (:name (repository/one (ds) ["SELECT name FROM donors WHERE id=?" donor]))))
     (is (:id (auth/authorize! (ds) (token :a) false false)))
-    (migratus/rollback cfg)
+    (fixture/rollback-latest! cfg)
     (is (nil? (:name (repository/one migrator ["SELECT to_regclass('public.import_files') AS name"]))))
     (is (= donor (:id (repository/one (ds) ["SELECT id FROM donors"]))))
     (migratus/migrate cfg)

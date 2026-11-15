@@ -366,3 +366,12 @@ for this planning document itself; validate links/coverage and `git diff --check
 Next approval package: Group A plus the sanitized discovery/schema decisions.
 Approval of this plan does not resolve missing workbook evidence, install parser
 libraries, authorize later milestones, or approve production processing.
+
+## Task 35 delivery
+
+The user approved the exact CSV/POI dependency and bank-upload proposal before
+implementation. [Task 35 delivery notes](task-35-bank-parser-proposal.md) record
+bounded CSV/XLSX staging, protected multipart upload, paged validation reads,
+identical-byte explicit retry, interrupted-attempt recovery and synthetic test
+coverage. The branch remains stacked on #34. No canonical writes or migration
+were added. Next: #36 Polish upload/validation UI using these endpoints.

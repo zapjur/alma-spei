@@ -33,7 +33,9 @@ requirements. These are the files the user identified for this inspection.
   correspondence-group member. Tax year, receipt year and attribution remain OPEN.
 - Bank B/C meaning is still based on stakeholder description; their raw values were
   not emitted for interpretation. Sender parsing and stable payment identity remain
-  OPEN. Date epoch and date-only semantics must be verified before parser delivery.
+  OPEN. A follow-up metadata-only inspection on 2026-11-08 verified the bank workbook uses the 1900
+  epoch (`date1904` is false). Supported date-only formats remain an explicit
+  task 35 development contract, not an inferred production rule.
 - Absence of currency headings does not establish PLN. No default currency or
   generated payment date is authorized by these files.
 - No matching threshold, payment deduplication key, retention period, permissible

@@ -233,3 +233,13 @@ points and treats whitespace conservatively across JVM/JavaScript. No email,
 self-registration, SSO or MFA was added. Only local development/test runtime is
 configured. Remaining Milestone 2 donor/discovery decisions and all production
 privacy/operational gates retain their prior status.
+
+## CONFIRMED — task 35 dependency and implementation approval
+
+The user explicitly approved the [task 35 proposal](task-35-bank-parser-proposal.md)
+before implementation. It authorizes data.csv 1.1.1, poi-ooxml 6.0.0 and the bounded
+synthetic bank CSV/XLSX staging/upload implementation. No schema migration was
+needed. Production formats, currency, financial overlap/payment identity, negative
+payment treatment, retention and operational containment remain OPEN. The delivered
+startup recovery assumes a single application process, with no rolling multi-instance
+deployment claim. No approval of real personal-data processing is implied.

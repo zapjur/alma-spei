@@ -40,3 +40,20 @@
   (is (validation/valid? imports/batch (assoc batch :state "approved" :total-rows 2 :valid-rows 2 :invalid-rows 0 :reviewed-rows 2)))
   (is (validation/valid? imports/batch (assoc batch :state "failed" :failure-code "parse-failed" :version 2)))
   (is (not (validation/valid? imports/batch (assoc batch :state "failed")))))
+
+(deftest staging-pages-keep-missing-currency-explicit-and-bound-pagination
+  (let [payload {:date "2026-01-02" :sender "Synthetic Żółć" :description ""
+                 :amount "9999999999999999.9999" :currency nil :source-date "02.01.2026" :source-amount "9999999999999999,9999"}
+        row {:worksheet-index 1 :row-number 2 :payload payload :validation-state "valid" :errors []}
+        page {:batch (assoc batch :state "review" :total-rows 1 :valid-rows 1 :invalid-rows 0 :reviewed-rows 0)
+              :rows [row] :total 1 :limit 25 :offset 0}]
+    (is (validation/valid? imports/rows-response page))
+    (is (validation/valid? imports/upload-response (assoc page :skipped-empty-rows 1)))
+    (is (not (validation/valid? imports/row-payload (assoc payload :currency "PLN"))))
+    (is (not (validation/valid? imports/row-payload (assoc payload :raw-xml "synthetic"))))
+    (is (validation/valid? imports/row-payload (assoc payload :date nil :amount nil)))
+    (is (not (validation/valid? imports/row-payload (assoc payload :sender (apply str (repeat 4097 "x")))))))
+  (doseq [query [{} {:limit 1 :offset 0} {:limit 100 :offset 50000}]]
+    (is (validation/valid? imports/page-query query)))
+  (doseq [query [{:limit 101} {:offset -1} {:limit "25"} {:sort-by "name"}]]
+    (is (not (validation/valid? imports/page-query query)))))

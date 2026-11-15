@@ -132,3 +132,8 @@ run `bb seed-demo synthetic.admin` with your existing synthetic administrator's
 username. It loads 20 profiles and 30 payments transactionally; unchanged repeats
 add nothing, and edited seed records are preserved with a conflict explanation.
 See [synthetic demo data](docs/task-33-synthetic-data.md). No real workbook data is used.
+
+The backend also accepts bounded synthetic bank CSV/XLSX uploads with persisted
+row validation reports; see the [bank upload contract](docs/task-35-bank-parser-proposal.md).
+The Polish upload screen is the next task (#36). Upload staging changes no donors
+or payments and does not establish currency or financial deduplication rules.

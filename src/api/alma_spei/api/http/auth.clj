@@ -87,7 +87,9 @@
 
 (defn wrap-body-limit [handler]
   (fn [request]
-    (if (and (:body request) (not (#{:get :head} (:request-method request))))
+    (if (and (:body request) (not (#{:get :head} (:request-method request)))
+             (not (and (= :post (:request-method request)) (= "/api/imports/upload" (:uri request))
+                       (str/starts-with? (get-in request [:headers "content-type"] "") "multipart/form-data;"))))
       ;; Read at most limit+1 bytes even for chunked bodies; do not trust Content-Length.
       (let [bytes (.readNBytes ^java.io.InputStream (:body request) 16385)]
         (if (> (alength bytes) 16384)
