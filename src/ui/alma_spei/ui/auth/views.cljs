@@ -3,6 +3,8 @@
             [alma-spei.ui.donors.views :as donors]
             [alma-spei.ui.imports.views :as imports]
             [alma-spei.ui.imports.review-views :as review]
+            [alma-spei.ui.imports.decision-views :as decisions]
+            [re-frame.core :as rf]
             [alma-spei.ui.imports.review-location :as review-location]
             [reagent.core :as r]))
 
@@ -125,23 +127,28 @@
    (for [user (:users @state)] ^{:key (:id user)} [edit-form state user])])
 
 (defn navigate! [state screen]
-  (review-location/clear!)
-  (swap! state assoc :screen screen :temporary-password nil :review-route nil))
+  (when (decisions/allow-leave!)
+    (review-location/clear!)
+    (swap! state assoc :screen screen :temporary-password nil :review-route nil)))
 (defn review-route-state [state route]
   (let [revision (inc (get state :review-route-sequence 0))]
     (assoc state :screen :review :temporary-password nil :review-route-sequence revision
            :review-route (assoc route :revision revision))))
 (defn open-review! [state]
-  (review-location/write! {:offset 0})
-  (swap! state review-route-state {:offset 0}))
+  (when (decisions/allow-leave!)
+    (review-location/write! {:offset 0})
+    (swap! state review-route-state {:offset 0})))
 
 (defn panel []
   (r/with-let [route (review-location/parse (.-hash js/location))
                state (r/atom {:busy true :screen (if route :review :home) :review-route route})
                hash-handler (fn [_]
-                              (if-let [route (review-location/parse (.-hash js/location))]
-                                (swap! state review-route-state route)
-                                (when (= :review (:screen @state)) (navigate! state :home))))
+                              (if (decisions/allow-leave!)
+                                (if-let [route (review-location/parse (.-hash js/location))]
+                                  (swap! state review-route-state route)
+                                  (when (= :review (:screen @state)) (swap! state assoc :screen :home :review-route nil)))
+                                (let [work (:work @(rf/subscribe [:review/state]))]
+                                  (review-location/write! (select-keys work [:batch-id :offset])))))
                _ (.addEventListener js/window "hashchange" hash-handler)
                _ (request! state :session "/api/auth/session" "GET" nil)]
     (let [{:keys [user csrf screen busy error temporary-password]} @state]
@@ -175,7 +182,7 @@
           (cond
             (or (:password-change-required user) (= screen :password)) [password-form state]
             (and (= screen :accounts) (:administrator user)) [accounts state]
-            (= screen :review) [review/panel #(request! state :session "/api/auth/session" "GET" nil) (:review-route @state)]
+            (= screen :review) [review/panel #(request! state :session "/api/auth/session" "GET" nil) (:review-route @state) csrf]
             (= screen :imports) [imports/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             :else [:section

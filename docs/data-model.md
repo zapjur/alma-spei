@@ -93,3 +93,20 @@ and column grants protect this boundary. See
 [the approved schema and delivery](task-34-import-foundation-proposal.md).
 Source payload validation, review/preview/compensation tables and real-data retention
 remain later decisions; a generic JSONB object is not a finalized workbook contract.
+
+## Approved saved review subset — Task #38
+
+Migration `202611150001-review-decisions` adds same-batch `import_donor_proposals`,
+current versioned `import_review_decisions`, append-only `import_review_events`,
+immutable `import_previews` and ordinal-paged `import_preview_items`. Typed foreign
+keys bind decisions to staged rows, selected donors/proposals and explicit existing
+donations; source observations remain unchanged. Runtime grants prohibit deleting
+review records or updating preview/journal records. No canonical donor/payment write
+is part of this subset. See [the approved contract](task-38-review-decisions-proposal.md).
+
+Decision completeness is derived from explicit currency, nonblank bounded evidence,
+payment disposition and overlap confirmation. Saved counters describe structural
+completeness; referenced versions are revalidated during preview. Review journals
+retain protected before/after snapshots and stable actors. Reviewer/actor display
+names in reads are current account labels; stored target labels reflect the save.
+Preview payloads retain accepted versions, exact source facts and separate effects.

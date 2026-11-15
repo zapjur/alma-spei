@@ -1,5 +1,6 @@
 (ns alma-spei.ui.imports.review-events
   (:require [clojure.string :as str]
+            [alma-spei.ui.imports.decision-events :as editing]
             [re-frame.core :as rf]))
 
 (def initial-state {:mode :queue :queue {:status :loading :batches [] :total 0 :offset 0 :limit 25}})
@@ -21,7 +22,7 @@
 (defn open [db [_ route]]
   (let [db (assoc db :review initial-state)]
     (if-let [id (:batch-id route)] (batch-load db id (or (:offset route) 0)) (queue-load db 0))))
-(defn close [db _] {:db (-> db (dissoc :review) (assoc :review-sequence (next-id db))) :review/abort nil})
+(defn close [db _] {:db (-> db (dissoc :review) (assoc :review-sequence (next-id db))) :review/abort nil :decision/abort nil})
 (defn back [db _]
   (assoc (queue-load (assoc db :review initial-state) 0) :review/location {:offset 0}))
 (defn select-batch [db [_ id]]
@@ -68,12 +69,12 @@
   (if (and (get-in db [:review :selected]) (some #(= id (:id %)) (get-in db [:review :search :donors])))
     (request (assoc-in db [:review :comparison] {:donor-id id}) :comparison :comparison
              (merge (get-in db [:review :selected]) {:donor-id id :batch-id (get-in db [:review :work :batch-id])})) {:db db}))
-(defn loaded [db [_ kind id {:keys [data error]}]]
+(defn loaded-base [db [_ kind id {:keys [data error]}]]
   (let [slot (case kind :queue :queue :rows :work :search :search :comparison :comparison)]
     (if (not= id (get-in db [:review slot :request-id])) {:db db}
         (cond
           (contains? #{:unauthenticated :forbidden} error)
-          {:db (-> db (assoc :review {:mode :session-error :error error}) (assoc :review-sequence (next-id db))) :review/abort nil}
+          {:db (-> db (assoc :review {:mode :session-error :error error}) (assoc :review-sequence (next-id db))) :review/abort nil :decision/abort nil}
           error {:db (update-in db [:review slot] assoc :status :error :error error)}
           (= kind :queue)
           (if (and (pos? (:offset data)) (>= (:offset data) (:total data)))
@@ -91,6 +92,14 @@
           (= kind :comparison) {:db (-> db (assoc-in [:review :comparison] (assoc data :status :ready))
                                         (assoc-in [:review :work :batch] (:batch data)))}
           :else {:db db}))))
+(defn loaded [db event]
+  (let [[_ kind id response] event result (loaded-base db event)]
+    (if (and (= kind :rows) (= id (get-in db [:review :work :request-id])) (:data response)
+             (= :ready (get-in result [:db :review :work :status])))
+      (editing/load-editor (:db result)) result)))
+(defn select-row-fx [db event]
+  (let [selected (select-row db event)]
+    (if (= selected db) {:db db} (editing/load-editor selected))))
 (defn with-db [handler] (fn [{:keys [db]} event] (handler db event)))
 (rf/reg-event-fx :review/open (with-db open))
 (rf/reg-event-fx :review/close (with-db close))
@@ -98,7 +107,7 @@
 (rf/reg-event-fx :review/select-batch (with-db select-batch))
 (rf/reg-event-fx :review/reload (with-db reload))
 (rf/reg-event-fx :review/page (with-db page))
-(rf/reg-event-db :review/select-row select-row)
+(rf/reg-event-fx :review/select-row (with-db select-row-fx))
 (rf/reg-event-db :review/search-draft search-draft)
 (rf/reg-event-fx :review/search (with-db search))
 (rf/reg-event-db :review/search-status search-status)

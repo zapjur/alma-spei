@@ -99,3 +99,35 @@ invalid counts. Manually submitted donor search and explicit profile comparison 
 not create links, review decisions or canonical changes. Original combined sender
 text is not decomposed or treated as identity evidence. The attributed decision/
 preview service remains #38; comparison is not an approval step.
+
+## Delivered task 38 — saved decisions and immutable previews
+
+The [approved review workflow](task-38-review-decisions-proposal.md) adds explicit
+existing-active-donor, reusable proposed-profile and unresolved decisions. New
+profiles are typed manually; sender text never prefills inferred fields. Staff
+confirm checking current profiles/proposals before creating a proposal. Identity
+choices may be saved incomplete. Financial completion requires explicit currency,
+evidence, new-versus-already-represented disposition and overlap confirmation. An
+existing-payment reference must exactly match selected donor/date/amount/currency
+and version; equal payments are never automatically collapsed.
+
+Session/CSRF-protected writes require current batch and subject versions. File-first
+then batch locks serialize competing reviewers; stale writes return 409. Current
+identical no-ops add no journal record/version. Clear writes an unresolved version
+and retains history. Every actual save, counter change and event is atomic.
+
+All invalid rows, negative amounts, incomplete decisions and stale references block
+a ready preview. Full blocker/effect/history pages remain available. Creating a ready
+preview atomically records immutable effects, per-currency totals and a versioned
+SHA-256 digest; the batch stays `review`. Old snapshots remain readable and are
+labelled stale when their accepted context changes. This is preparation, not approval.
+The UI preserves drafts on conflicts/uncertain outcomes, never retries mutations
+automatically, confirms dirty navigation, and purges review data on session loss/logout.
+
+Task 39 must revalidate the complete preview and current canonical financial state,
+including newly introduced overlap, before any canonical application. The digest
+binds accepted references/versions, not the entire donor/payment catalogue. Existing
+payments are immutable to the runtime; review uses per-payment advisory locks
+(`review-payment:<UUID>`) rather than granting payment UPDATE for row locks. Any
+future compensation changing/removing payments must cooperate with this lock policy.
+Backup/approval/commit/undo operations remain deferred and require their own approval.

@@ -394,3 +394,14 @@ server counts own progress and browsing never marks a row reviewed. No new
 matching rule, dependency, migration or review-write policy. See
 [task 37](task-37-review-queue.md). Next: #38 attributed decisions and preview,
 with explicit approval of its concrete write schema and unresolved domain policy.
+
+## Task 38 delivery
+
+The user approved the [task 38 implementation package](task-38-review-decisions-proposal.md)
+with “apply” on 2026-11-15. `trello/38-review-decisions` stacks on #37 and adds
+attributed versioned decisions, reusable manually entered proposals, explicit
+payment/currency review, a Polish editing/history UI and immutable paged previews.
+Five additive tables; no new dependencies or canonical import writes. Piotr is the
+sole assigned contributor. Next: #39 transactional commit and latest-import undo,
+with its own concrete schema/backup/concurrency approval proposal. Three tasks
+remain in this sprint after #38: #39, #40 and #41.

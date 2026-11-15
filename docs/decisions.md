@@ -254,3 +254,15 @@ source/profile fields are reused without inferring sender structure or matching
 rules. No dependency or schema change. Attributed decision writes, multi-user write
 conflicts, preview/approval and unresolved financial policy remain #38 and later
 approval packages.
+
+## CONFIRMED — task 38 schema and workflow approval
+
+On 2026-11-15 the user explicitly approved the [concrete task 38 proposal](task-38-review-decisions-proposal.md)
+with “apply”. The five-table additive migration, whole-batch optimistic concurrency,
+active existing targets, reusable manually entered proposals, explicit currency and
+financial evidence/disposition, and immutable version-bound previews are approved
+for synthetic development. No new dependency. Invalid rows and negative amounts
+block readiness; profile/financial identity remains separate from correspondence.
+A preview leaves the batch in `review`, writes no canonical records and grants no
+commit authority. Real overlap/evidence standards, refunds, privacy/retention and
+production remain OPEN; task 39 requires its own commit/undo approval package.

@@ -3,6 +3,7 @@
             [alma-spei.api.http.auth :as auth]
             [alma-spei.api.http.donors :as donors]
             [alma-spei.api.http.imports :as imports]
+            [alma-spei.api.http.review-decisions :as decisions]
             [alma-spei.api.http.middleware :as middleware]
             [alma-spei.common.contracts.health :as contract]
             [muuntaja.core :as muuntaja]
@@ -24,7 +25,7 @@
                 ["/api/health/ready" {:get {:handler (health/readiness ds timeout)
                                             :responses {200 {:body contract/response}
                                                         503 {:body contract/response}}}}]]
-               (concat (auth/routes ds settings) (donors/routes ds settings) (imports/routes ds settings)))
+               (concat (auth/routes ds settings) (donors/routes ds settings) (imports/routes ds settings) (decisions/routes ds settings)))
          {:data {:muuntaja muuntaja/instance
                  :coercion coercion/coercion
                  :middleware [format/format-middleware
