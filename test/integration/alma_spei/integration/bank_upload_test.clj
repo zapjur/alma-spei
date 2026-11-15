@@ -1,5 +1,6 @@
 (ns alma-spei.integration.bank-upload-test
   (:require [alma-spei.api.auth.service :as auth]
+            [alma-spei.api.fs.private-files :as private]
             [alma-spei.api.db.migrations :as migrations]
             [alma-spei.api.http.auth :as auth-http]
             [alma-spei.api.http.imports :as http]
@@ -194,8 +195,10 @@
                   (fn []
                     (let [path (original)]
                       (swap! paths conj path)
-                      (is (= "rwx------" (java.nio.file.attribute.PosixFilePermissions/toString
-                                          (java.nio.file.Files/getPosixFilePermissions path (make-array java.nio.file.LinkOption 0)))))
+                      (is (= path (private/assert-private! path true)))
+                      (when (= :posix (private/kind path))
+                        (is (= "rwx------" (java.nio.file.attribute.PosixFilePermissions/toString
+                                            (java.nio.file.Files/getPosixFilePermissions path private/nofollow)))))
                       path))]
       (is (= 201 (:status (upload))))
       (is (= 409 (:status (upload))))
@@ -211,3 +214,14 @@
     (with-redefs [limits/body-bytes (inc (alength content))]
       (is (= 413 (:status (upload "ignored.csv" (byte-array 0) {} {:body (ByteArrayInputStream. bytes)})))))
     (is (= 0 (count-of "import_files")))))
+
+(deftest unsafe-storage-stops-before-staging-and-releases-parser-permit
+  (doseq [target [#'private/create-temp-directory! #'private/create-file!]]
+    (with-redefs-fn {target (fn [& _] (throw (java.io.IOException. "Synthetic private storage detail")))}
+      (fn []
+        (let [result (upload)]
+          (is (= 500 (:status result)))
+          (is (= "private-storage-unavailable" (get-in result [:body :code])))
+          (is (not (.contains (pr-str (:body result)) "Synthetic private storage detail")))
+          (is (= 0 (count-of "import_files")))))))
+  (is (= 201 (:status (upload)))))

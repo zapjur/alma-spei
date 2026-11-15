@@ -162,3 +162,8 @@ A current saved preview offers **Przejdź do zatwierdzenia**, with explicit synt
 backup/approval steps. Undo requires a confirmation dialog and current server
 eligibility. An undone attempt offers a fresh-file reimport flow; history remains.
 See [the confirmation and history UI](docs/task-40-import-summary-proposal.md).
+
+Windows compatibility uses the target filesystem's POSIX or ACL protection for
+private uploads and initialization. `bb init` runs a small JVM command with the
+already pinned Clojure runtime. See [Windows verification](docs/windows-verification.md)
+for native checks still required; unsupported private storage fails closed.

@@ -3,7 +3,7 @@
  :tasks
  {:requires ([alma-spei.dev.tasks :as tasks])
   init {:doc "Create protected local database secrets without replacing existing files."
-        :task (tasks/init!)}
+        :task (apply tasks/init! *command-line-args*)}
   db-up {:doc "Start local PostgreSQL and wait until it is healthy."
          :task (tasks/compose! "up" "-d" "--wait" "db")}
   db-down {:doc "Stop local PostgreSQL while preserving its data volume."

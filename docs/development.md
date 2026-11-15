@@ -544,3 +544,23 @@ Reloadable fragments contain only UUIDs and page offsets: `#imports/history/0`,
 `#imports/batch/<uuid>/0`, `#imports/confirm/<batch>/<preview>/0`, and
 `#imports/reimport/<uuid>`. Existing `#review/...` links remain supported. Logout
 and auth failures clear private import state, including nested upload state.
+
+## Private files and Windows compatibility — Task #50
+
+Uploads and `bb init` share a dependency-free JVM file policy. POSIX targets keep
+0700 directories/0600 files; Windows ACL targets receive and verify owner-only ACLs
+before content is written. Unsupported providers fail closed. New empty paths may
+be assigned to the application account; an existing installation is never reowned,
+chmodded or silently repaired. Existing secrets must be nonempty private regular
+files; symlinks/unsafe access are rejected without replacing values.
+
+Babashka does not expose the ACL classes, so `bb init` delegates to the lean
+`clojure -Srepro -M:init` alias using existing Clojure 1.12.6 only. Have the pinned
+JDK and executable Clojure CLI available first. No JDBC/HTTP app or new library is
+loaded. `bb init --directory <existing-parent>/new-directory` supports temporary
+synthetic checks; normal `bb init` still uses `.secrets`. Output never includes values.
+
+Shell files are pinned to LF through `.gitattributes`, including Windows autocrlf
+checkouts. The unit suite verifies a separate real Git checkout. See
+[Windows verification](windows-verification.md) for the required native Windows
+11/JDK 25/Docker/QA checklist. POSIX and adapter tests are not native Windows evidence.

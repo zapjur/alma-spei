@@ -290,3 +290,19 @@ are approved; no schema or dependency change. The capability uses the same serve
 provider predicate as backup/commit. Current staff display labels do not replace
 stable actor IDs. Real backup/provider, source and operational/privacy approvals
 retain their OPEN status. No automatic mutation retry or production enablement.
+
+## CONFIRMED — task 50 compatibility approval and current QA ownership
+
+On 2026-11-15 the user approved [task 50](task-50-windows-file-permissions-proposal.md):
+capability-based POSIX/verified ACL private files, safe repeat initialization, LF
+shell attributes and regression tests. No new dependency, schema or financial rule.
+Babashka ACL types are unavailable, so the approved helper-reuse implementation uses
+a lean JVM init command with the existing Clojure version rather than duplicating
+security policy or requiring a Windows shell tool. Native Windows validation remains
+OPEN under [the checklist](windows-verification.md); macOS/mock evidence is limited.
+
+A fresh board read found task 41 in Done with a closing note transferring external
+QA to cards 47–49 in `AntoniLenart/alma-spei-tests`; existing application tests stay
+with feature branches. The earlier plan/count of one remaining task 41 is superseded.
+No duplicate #41 implementation or external-QA completion is authorized/inferred.
+Task 50 is the next identified open application blocker, with no assigned co-authors.

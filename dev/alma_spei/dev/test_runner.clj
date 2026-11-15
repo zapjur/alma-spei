@@ -2,9 +2,9 @@
   (:require [clojure.test :as test]))
 
 (def suites
-  {"unit" '[alma-spei.api.config-test alma-spei.api.http-test alma-spei.common.health-test
+  {"unit" '[alma-spei.api.config-test alma-spei.api.fs.private-files-test alma-spei.api.http-test alma-spei.common.health-test
             alma-spei.api.auth.security-test alma-spei.common.auth-test
-            alma-spei.common.donors-test alma-spei.api.donors-test alma-spei.dev.demo-test
+            alma-spei.common.donors-test alma-spei.api.donors-test alma-spei.dev.demo-test alma-spei.dev.line-endings-test
             alma-spei.common.imports-test alma-spei.common.decisions-test alma-spei.api.fingerprint-test alma-spei.api.bank-test]
    "integration" '[alma-spei.integration.database-test alma-spei.integration.auth-test
                    alma-spei.integration.donors-test alma-spei.integration.donor-api-test
