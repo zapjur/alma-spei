@@ -384,3 +384,13 @@ existing contracts/endpoints, with native XHR progress and explicit retry handli
 no dependency, migration or API change. See [task 36](task-36-import-upload.md).
 Next: #37 server-backed review queue and candidate comparison, retaining the
 approval gates for any unresolved source/matching policy.
+
+## Task 37 delivery
+
+At the user's instruction to proceed, #37 adds the persisted bank review queue,
+protected batch/comparison reads and Polish side-by-side manual comparison on
+`trello/37-review-queue`, based on #36. Browser reload restores the batch/page;
+server counts own progress and browsing never marks a row reviewed. No new
+matching rule, dependency, migration or review-write policy. See
+[task 37](task-37-review-queue.md). Next: #38 attributed decisions and preview,
+with explicit approval of its concrete write schema and unresolved domain policy.

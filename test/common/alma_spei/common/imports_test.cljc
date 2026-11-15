@@ -1,5 +1,6 @@
 (ns alma-spei.common.imports-test
   (:require [alma-spei.common.contracts.imports :as imports]
+            [alma-spei.common.contracts.review :as review]
             [alma-spei.common.validation :as validation]
             #?(:clj [clojure.test :refer [deftest is]]
                :cljs [cljs.test :refer-macros [deftest is]])))
@@ -57,3 +58,20 @@
     (is (validation/valid? imports/page-query query)))
   (doseq [query [{:limit 101} {:offset -1} {:limit "25"} {:sort-by "name"}]]
     (is (not (validation/valid? imports/page-query query)))))
+
+(deftest review-contracts-are-closed-and-compare-profile-with-source-locators
+  (let [parsed (assoc batch :state "review" :total-rows 1 :valid-rows 1 :invalid-rows 0 :reviewed-rows 0)
+        row {:worksheet-index 1 :row-number 2 :validation-state "valid" :errors []
+             :payload {:date "2026-01-02" :sender "Synthetic Sender" :description "" :amount "12.3400" :currency nil
+                       :source-date "02.01.2026" :source-amount "12,3400"}}
+        donor {:id id :entity-type "business" :name "Synthetic Company" :first-name nil :street nil
+               :postal-code nil :city nil :province nil :is-active true :version 1}
+        response {:batch parsed :row row :donor donor}]
+    (is (validation/valid? review/queue-response {:batches [parsed] :total 1 :limit 25 :offset 0}))
+    (is (validation/valid? review/comparison-response response))
+    (is (not (validation/valid? review/comparison-response (assoc response :donations []))))
+    (is (not (validation/valid? review/comparison-response (assoc-in response [:donor :password-hash] "synthetic"))))
+    (is (validation/valid? review/comparison-query {:donor-id id}))
+    (is (not (validation/valid? review/comparison-query {:donor-id id :score 100})))
+    (is (validation/valid? review/locator {:worksheet 1 :row 2}))
+    (is (not (validation/valid? review/locator {:worksheet 0 :row 2})))))
