@@ -135,5 +135,7 @@ See [synthetic demo data](docs/task-33-synthetic-data.md). No real workbook data
 
 The backend also accepts bounded synthetic bank CSV/XLSX uploads with persisted
 row validation reports; see the [bank upload contract](docs/task-35-bank-parser-proposal.md).
-The Polish upload screen is the next task (#36). Upload staging changes no donors
-or payments and does not establish currency or financial deduplication rules.
+Open **Import przelewów** to upload a synthetic bank file and inspect its paged
+validation report; see [the upload screen](docs/task-36-import-upload.md). Upload
+staging changes no donors or payments and does not establish currency or financial
+deduplication rules.

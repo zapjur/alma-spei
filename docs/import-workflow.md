@@ -86,4 +86,6 @@ transaction as retry creation. Parse failures preserve an auditable failed attem
 responses expose its ID/version when available. Single-process startup recovery
 marks interrupted attempts failed before opening the listener. No donor/payment
 writes, financial deduplication, review decisions or commit/undo are implemented
-by this task. The upload screen follows in #36.
+by this task. The [#36 upload screen](task-36-import-upload.md) consumes these APIs, displays
+all validation rows and supports explicit failed-attempt retry. Matching, human
+review decisions and final approval are separate later steps.

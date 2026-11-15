@@ -375,3 +375,12 @@ bounded CSV/XLSX staging, protected multipart upload, paged validation reads,
 identical-byte explicit retry, interrupted-attempt recovery and synthetic test
 coverage. The branch remains stacked on #34. No canonical writes or migration
 were added. Next: #36 Polish upload/validation UI using these endpoints.
+
+## Task 36 delivery
+
+At the user's instruction to proceed, #36 adds the Polish bank upload/error and
+paged validation-report UI on `trello/36-import-upload`, based on #35. It reuses
+existing contracts/endpoints, with native XHR progress and explicit retry handling;
+no dependency, migration or API change. See [task 36](task-36-import-upload.md).
+Next: #37 server-backed review queue and candidate comparison, retaining the
+approval gates for any unresolved source/matching policy.

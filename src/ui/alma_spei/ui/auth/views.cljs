@@ -1,6 +1,7 @@
 (ns alma-spei.ui.auth.views
   (:require [alma-spei.common.contracts.auth :as contract]
             [alma-spei.ui.donors.views :as donors]
+            [alma-spei.ui.imports.views :as imports]
             [reagent.core :as r]))
 
 (defn result-state [state action result]
@@ -140,6 +141,7 @@
              [:<>
               [:button {:disabled busy :on-click #(swap! state assoc :screen :home :temporary-password nil)} "Start"]
               [:button {:disabled busy :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Darczyńcy"]
+              [:button {:disabled busy :on-click #(swap! state assoc :screen :imports :temporary-password nil)} "Import przelewów"]
               [:button {:disabled busy :on-click #(swap! state assoc :screen :password :temporary-password nil)} "Zmień hasło"]
               (when (:administrator user)
                 [:button {:disabled busy
@@ -149,10 +151,13 @@
           (cond
             (or (:password-change-required user) (= screen :password)) [password-form state]
             (and (= screen :accounts) (:administrator user)) [accounts state]
+            (= screen :imports) [imports/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             (= screen :donors) [donors/panel #(request! state :session "/api/auth/session" "GET" nil) csrf]
             :else [:section
                    [:h2 "Start"]
                    [:p "Wybierz zadanie, aby rozpocząć pracę."]
                    [:button {:type "button" :disabled busy
-                             :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Przejdź do darczyńców"]])])])
+                             :on-click #(swap! state assoc :screen :donors :temporary-password nil)} "Przejdź do darczyńców"]
+                   [:button {:type "button" :disabled busy
+                             :on-click #(swap! state assoc :screen :imports :temporary-password nil)} "Prześlij plik bankowy"]])])])
     (finally (reset! state {}))))

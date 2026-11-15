@@ -402,7 +402,7 @@ audit retention and recovery after loss of all administrators need deployment po
 
 See the approved [format, limits and API contract](task-35-bank-parser-proposal.md).
 No additional migration is required beyond #34. Uploads remain synthetic-only;
-there is no upload screen until #36. A signed-in staff session with a changed
+the [Polish upload screen](task-36-import-upload.md) is available under **Import przelewów**. A signed-in staff session with a changed
 password, matching Origin and session-bound CSRF header/cookie is required.
 
 POST `/api/imports/upload` accepts multipart `file`, `source=bank`, and `separator`
@@ -431,3 +431,14 @@ lint/format and JVM tests were rerun: 40 tests / 333 assertions, all passing.
 JavaScript tests: 42 / 270. PostgreSQL/real HTTP integration tests: 48 / 409.
 The local Node executable is 23.11.0; this run does not independently verify the
 repository's pinned Node 24.20.0. No new Node dependency was installed.
+
+## Polish upload screen (#36)
+
+Open **Import przelewów** after signing in and changing any temporary password.
+Use synthetic CSV/XLSX only. CSV requires an explicit separator; upload progress
+is followed by a server-analysis state. The resulting 25-row report includes all
+invalid rows and exact source locators, with unresolved currency clearly marked.
+No donor or payment changes occur during this flow. Known failed attempts require
+same-file selection and explicit retry confirmation; an uncertain response is never
+automatically retried. Navigation/logout clears the local report and file input.
+See [delivery and verification](task-36-import-upload.md).
