@@ -3,22 +3,11 @@
             [babashka.http-client :as http]
             [babashka.process :as process]
             [cheshire.core :as json]
-            [clojure.string :as str])
-  (:import [java.nio.file FileAlreadyExistsException]
-           [java.security SecureRandom]
-           [java.util Base64]))
+            [clojure.string :as str]))
 
-(defn init! []
-  (fs/create-dirs ".secrets" {:posix-file-permissions "rwx------"})
-  (doseq [name ["admin-password" "migration-password" "app-password" "auth-secret"]]
-    (let [path (fs/path ".secrets" name)]
-      (try
-        (fs/create-file path {:posix-file-permissions "rw-------"})
-        (spit (str path)
-              (str (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
-                                    (.generateSeed (SecureRandom.) 32)) "\n"))
-        (catch FileAlreadyExistsException _ nil))))
-  (println "Local secret files are ready; existing values were preserved."))
+(defn init! [& args]
+  ;; Babashka does not expose Windows ACL classes; share the JVM policy through a lean CLI.
+  (apply process/shell "clojure" "-Srepro" "-M:init" args))
 
 (defn- local-env []
   ;; Preserve explicit caller configuration and avoid introducing a second secret source.

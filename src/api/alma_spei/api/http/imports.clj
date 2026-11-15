@@ -1,5 +1,6 @@
 (ns alma-spei.api.http.imports
   (:require [alma-spei.api.auth.crypto :as crypto]
+            [alma-spei.api.fs.private-files :as private]
             [alma-spei.api.http.auth :as auth-http]
             [alma-spei.api.imports.adapters.bank :as bank]
             [alma-spei.api.imports.fingerprint :as fingerprint]
@@ -13,7 +14,6 @@
             [ring.middleware.multipart-params :as multipart]
             [ring.middleware.params :refer [wrap-params]])
   (:import [java.nio.file Files]
-           [java.nio.file.attribute PosixFilePermissions FileAttribute]
            [java.util.concurrent Semaphore]))
 
 (defonce parser-permit (Semaphore. 1))
@@ -52,9 +52,10 @@
                                    (select-keys (ex-data e) [:status :code :public-message :errors])
                                    {:batch-id (:id batch)} failed)))))))))
 
-(defn create-upload-directory []
-  (Files/createTempDirectory "alma-spei-upload-"
-                             (into-array FileAttribute [(PosixFilePermissions/asFileAttribute (PosixFilePermissions/fromString "rwx------"))])))
+(defn private-storage! [operation]
+  (try (operation)
+       (catch Exception _ (service/fail! 500 "private-storage-unavailable" "Nie można bezpiecznie utworzyć pliku tymczasowego. Sprawdź uprawnienia i obsługę systemu plików."))))
+(defn create-upload-directory [] (private-storage! #(private/create-temp-directory! "alma-spei-upload-")))
 
 (defn upload! [ds token request]
   (when-not (.tryAcquire parser-permit) (service/fail! 503 "import-busy" "Trwa przetwarzanie innego importu. Spróbuj ponownie."))
@@ -70,7 +71,7 @@
                         {:max-file-size limits/file-bytes :max-file-count 6 :encoding "UTF-8"
                          :store (fn [{:keys [filename stream]}]
                                   (when (> (vswap! files inc) 1) (limits/reject! "invalid-structure"))
-                                  (Files/createFile file (into-array FileAttribute [(PosixFilePermissions/asFileAttribute (PosixFilePermissions/fromString "rw-------"))]))
+                                  (private-storage! #(private/create-file! file))
                                   (with-open [out (io/output-stream (.toFile file))]
                                     (io/copy (limits/bounded-stream stream limits/file-bytes) out))
                                   {:filename filename})})

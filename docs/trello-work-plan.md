@@ -424,3 +424,19 @@ confirmation/history/outcome/undo/reimport UI, capability/uploader reads and exp
 uncertain-result recovery. No schema/dependency change. Contributors are stas and
 Piotr; the commit includes stas's agreed co-author identity. Next: #41 independent
 whole-workflow verification. One sprint task remains after #40.
+
+## Board reconciliation and task 50
+
+Rechecked 2026-11-15: [#41](https://trello.com/c/AtjqCzWk) is in Done. Its closing
+comment moves external workflow QA to [#47](https://trello.com/c/fVhKsHkk),
+[#48](https://trello.com/c/6324j4oR) and [#49](https://trello.com/c/hRvlC1Vl) in
+`AntoniLenart/alma-spei-tests`. Application transaction/undo tests already ship
+with #39/#40. Do not duplicate #41 or infer that external QA passed. The previous
+remaining-task count is superseded by this current board state.
+
+The user approved [#50](task-50-windows-file-permissions-proposal.md), the next
+identified open application blocker. `trello/50-windows-file-permissions` is based
+on #40, preserving stack history. It fixes unsupported POSIX attributes through
+verified private-file policy and adds LF shell attributes. No assigned Trello
+contributors, so no co-author is invented. Native Windows/QA acceptance remains
+OPEN; the branch does not backport or rewrite earlier feature branches.

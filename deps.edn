@@ -16,7 +16,10 @@
         metosin/malli {:mvn/version "0.20.3"}
         metosin/muuntaja {:mvn/version "0.6.12"}}
  :aliases
- {:run {:main-opts ["-m" "alma-spei.api.main"]}
+ {:init {:replace-paths ["src/api"]
+          :replace-deps {org.clojure/clojure {:mvn/version "1.12.6"}}
+          :main-opts ["-m" "alma-spei.api.fs.development-secrets"]}
+  :run {:main-opts ["-m" "alma-spei.api.main"]}
   :dev {:extra-paths ["dev"]}
   :repl {:extra-paths ["dev"]
          :extra-deps {nrepl/nrepl {:mvn/version "1.8.0"}

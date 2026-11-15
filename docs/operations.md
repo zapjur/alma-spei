@@ -118,3 +118,19 @@ any execution history because removing reversal filtering could reactivate payme
 Plan an approved forward fix or recovery rather than bypassing that guard. All
 new canonical writers must acquire the catalogue advisory gate before entity locks;
 maintenance SQL outside that protocol requires a separately controlled write outage.
+
+## Private storage portability — Task #50
+
+The [approved fix](task-50-windows-file-permissions-proposal.md) retains owner-only
+file access while selecting supported POSIX or Windows ACL mechanisms. It verifies
+access before writing temporary uploads or local secrets, rejects unsafe/symlink
+existing paths, and never falls back to unprotected files after a permission error.
+Existing installation permissions/ownership require operator review, not automatic
+repair or shared-account access expansion. File paths and original storage exceptions
+are not returned in upload errors or initialization output.
+
+Initialization now uses the JVM because Babashka cannot load the ACL types; this
+reuses the existing pinned Clojure/JDK prerequisites. Native Windows acceptance is
+[still OPEN](windows-verification.md). Network/FAT/other stores unable to enforce
+the policy remain unsupported; production storage/access and privacy decisions
+remain with hospice IT. LF shell attributes address checkout portability only.
