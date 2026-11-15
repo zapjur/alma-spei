@@ -279,3 +279,14 @@ import-created donors after dependency preflight. No walking backward to earlier
 imports after undoing the latest. Real backup providers/policy, financial evidence
 standards and production/privacy readiness remain OPEN. The test adapter creates
 no real backup and cannot authorize real-data processing.
+
+## CONFIRMED — task 40 UI and read API approval
+
+The user approved [task 40](task-40-import-summary-proposal.md) with “apply” on
+2026-11-15: explicit final synthetic confirmation, history/outcome/effect pages,
+confirmed conflict-safe undo, fresh-file reimport, and transient exact-request
+recovery after uncertain outcomes. Small protected capability/uploader-label reads
+are approved; no schema or dependency change. The capability uses the same server
+provider predicate as backup/commit. Current staff display labels do not replace
+stable actor IDs. Real backup/provider, source and operational/privacy approvals
+retain their OPEN status. No automatic mutation retry or production enablement.

@@ -42,8 +42,11 @@
       (:present (one tx ["SELECT EXISTS(SELECT 1 FROM import_review_decisions d JOIN import_batches b ON b.id=d.batch_id WHERE d.batch_id<>? AND b.state IN ('review','approved') AND d.donor_id=?) AS present" batch donor]))
       (some (fn [id] (:present (one tx ["SELECT EXISTS(SELECT 1 FROM import_review_decisions d JOIN import_batches b ON b.id=d.batch_id WHERE d.batch_id<>? AND b.state IN ('review','approved') AND d.donation_id=?) AS present" batch id]))) payments)))
 (defn history [tx limit offset]
-  {:batches (query tx ["SELECT b.*,f.byte_count FROM import_batches b JOIN import_files f ON f.id=b.file_id ORDER BY b.created_at DESC,b.id DESC LIMIT ? OFFSET ?" limit offset])
+  {:batches (query tx ["SELECT b.*,f.byte_count,u.display_name AS uploaded_by_name FROM import_batches b JOIN import_files f ON f.id=b.file_id JOIN users u ON u.id=b.created_by ORDER BY b.created_at DESC,b.id DESC LIMIT ? OFFSET ?" limit offset])
    :total (:total (one tx ["SELECT count(*) AS total FROM import_batches"]))})
 (defn item-page [tx batch limit offset]
   {:items (query tx ["SELECT i.*,EXISTS(SELECT 1 FROM donation_reversals r WHERE r.donation_id=i.donation_id) AS reversed FROM import_commit_items i WHERE batch_id=? ORDER BY ordinal LIMIT ? OFFSET ?" batch limit offset])
    :total (:total (one tx ["SELECT count(*) AS total FROM import_commit_items WHERE batch_id=?" batch]))})
+
+(defn uploader-name [tx batch]
+  (:display-name (one tx ["SELECT u.display_name FROM users u JOIN import_batches b ON b.created_by=u.id WHERE b.id=?" batch])))

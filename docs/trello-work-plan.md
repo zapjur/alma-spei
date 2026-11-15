@@ -415,3 +415,12 @@ payment compensation, latest-ever-only undo and fresh-attempt reimport. It prese
 batch/audit history instead of the card's destructive deletion. Piotr is the sole
 assigned contributor. Next: #40 final confirmation/history/undo UI, then #41 whole-
 workflow verification. Two sprint tasks remain after #39.
+
+## Task 40 delivery
+
+The user approved [task 40](task-40-import-summary-proposal.md) with “apply” on
+2026-11-15. `trello/40-import-summary` stacks on #39 and adds the Polish final
+confirmation/history/outcome/undo/reimport UI, capability/uploader reads and explicit
+uncertain-result recovery. No schema/dependency change. Contributors are stas and
+Piotr; the commit includes stas's agreed co-author identity. Next: #41 independent
+whole-workflow verification. One sprint task remains after #40.

@@ -11,8 +11,10 @@
            [java.sql Timestamp]))
 
 (defn now [] (Instant/now))
+(defn enabled? [settings]
+  (boolean (and (#{:development :test} (:environment settings)) (= true (:synthetic-imports settings)))))
 (defn enabled! [settings]
-  (when-not (and (#{:development :test} (:environment settings)) (= true (:synthetic-imports settings)))
+  (when-not (enabled? settings)
     (imports/fail! 409 "backup-unavailable" "Zatwierdzanie importów jest wyłączone. Brak zatwierdzonej usługi kopii zapasowej.")))
 (defn run-synthetic! []
   ;; This is explicitly not a backup artifact or a production recovery guarantee.

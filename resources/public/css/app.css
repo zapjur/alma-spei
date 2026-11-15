@@ -100,3 +100,14 @@ button:disabled { cursor: default; opacity: .6; }
 .preview-item dt { font-weight: 600; }
 .preview-item dd { margin: .25rem 0 .75rem; white-space: pre-wrap; }
 .decision-saved { background: #eef3f2; padding: .75rem; }
+
+.execution-screen { min-width: 0; }
+.execution-screen p, .execution-screen dd, .execution-screen a { overflow-wrap: anywhere; }
+.execution-history-entry, .execution-summary { padding: 1rem; border: 1px solid #cbd5d1; border-radius: .4rem; margin: 1rem 0; }
+.execution-consent { display: block; padding: .8rem 0; }
+.execution-dialog { max-width: min(38rem, calc(100vw - 3rem)); max-height: calc(100vh - 3rem); overflow: auto; padding: 1.25rem; border: 2px solid #657e43; border-radius: .5rem; }
+.execution-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.execution-dialog p, .execution-dialog dd { overflow-wrap: anywhere; }
+.execution-screen dt { font-weight: 600; }
+.execution-screen dd { margin: .25rem 0; }
+.execution-screen button { max-width: 100%; overflow-wrap: anywhere; }

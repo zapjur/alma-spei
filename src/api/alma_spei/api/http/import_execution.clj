@@ -1,5 +1,6 @@
 (ns alma-spei.api.http.import-execution
   (:require [alma-spei.api.auth.crypto :as crypto]
+            [alma-spei.api.auth.service :as auth-service]
             [alma-spei.api.http.auth :as auth]
             [alma-spei.api.http.imports :as import-http]
             [alma-spei.api.imports.backup :as backup]
@@ -24,6 +25,9 @@
            (when (seq (:query-params request)) (imports/fail! 400 "validation" "Nieprawidłowe parametry importu.")))
          {:status 200
           :body (case action
+                  :capabilities (do (auth-service/authorize! ds token false false)
+                                    (imports/validate! [:map {:closed true}] input)
+                                    {:commit-enabled (backup/enabled? settings) :mode (if (backup/enabled? settings) "synthetic-test-v1" "disabled")})
                   :commit (commit/execute! ds settings token csrf input)
                   :undo (undo/execute! ds token csrf input)
                   :backup (backup/create! ds settings token csrf id (get-in request [:path-params :preview-id]) input)
@@ -34,7 +38,8 @@
                (throw e))))))))
 (defn routes [ds settings]
   (let [route (fn [action schema] {:handler (endpoint ds settings action) :responses {200 {:body schema}}})]
-    [["/api/imports" {:get (route :history contract/history)}]
+    [["/api/imports/capabilities" {:conflicting true :get (route :capabilities contract/capabilities)}]
+     ["/api/imports" {:get (route :history contract/history)}]
      ["/api/imports/commit" {:conflicting true :post (route :commit contract/outcome)}]
      ["/api/imports/undo-last" {:conflicting true :post (route :undo contract/outcome)}]
      ["/api/imports/:id/previews/:preview-id/backup" {:post (route :backup contract/backup-response)}]

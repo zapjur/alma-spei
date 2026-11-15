@@ -1,5 +1,7 @@
 (ns alma-spei.ui.imports.decision-views
   (:require [alma-spei.ui.imports.decision-events :as events]
+            [alma-spei.ui.imports.navigation :as navigation]
+            [alma-spei.ui.imports.execution-location :as execution-location]
             [alma-spei.ui.imports.decision-effects]
             [alma-spei.common.contracts.decisions :as contract]
             [alma-spei.ui.donors.labels :as labels]
@@ -14,10 +16,7 @@
              :blocked "Podgląd wymaga uzupełnienia lub odświeżenia decyzji. Sprawdź listę braków."
              :invalid-response "Nie udało się odczytać danych weryfikacji."
              :unavailable "Nie udało się połączyć z serwerem. Spróbuj ponownie."})
-(defn allow-leave! []
-  (let [state @(rf/subscribe [:review/state])]
-    (or (not (or (events/dirty? state) (events/busy? state)))
-        (js/confirm "Opuścić bieżący wiersz i odrzucić niezapisany szkic? Rozpoczęty zapis na serwerze może zostać dokończony."))))
+(defn allow-leave! [] (navigation/allow-leave!))
 (defn error-text [state]
   (when (:error state) [:p {:role "alert"} (get errors (:error state) "Nie udało się zapisać danych weryfikacji.")]))
 (defn value-text [value]
@@ -186,6 +185,9 @@
      (when metadata
        [:div
         (when (get-in preview [:data :stale]) [:p {:role "alert"} "Ten podgląd jest nieaktualny. Zweryfikuj zmiany i przygotuj nowy podgląd."])
+        (when (and (= "review-preview-v2" (:rule-version metadata)) (not (get-in preview [:data :stale]))
+                   (not (events/dirty? state)) (not (events/busy? state)))
+          [:a {:href (execution-location/fragment {:mode :confirm :batch-id (:batch-id metadata) :preview-id (:id metadata) :offset 0}) :class "review-open"} "Przejdź do zatwierdzenia"])
         [:p (str "Nowe profile: " (get-in metadata [:summary :new-donors]) ", nowe wpłaty: " (get-in metadata [:summary :new-payments])
                  ", już ujęte wpłaty: " (get-in metadata [:summary :duplicate-references]) ".")]
         (for [total (get-in metadata [:summary :totals])] ^{:key (:currency total)} [:p (str "Nowe wpłaty: " (str/replace (:amount total) "." ",") " " (:currency total))])

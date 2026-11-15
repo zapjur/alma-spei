@@ -156,3 +156,9 @@ import. Original records/history remain; reversed payments leave normal payment
 reads and unchanged import-created donors are archived. Commit is disabled by
 default. An explicitly enabled synthetic backup adapter supports development only;
 it creates no recoverable backup. Final confirmation/history controls are #40.
+
+Open **Historia importów** to view attempts, committed outcomes and compensation.
+A current saved preview offers **Przejdź do zatwierdzenia**, with explicit synthetic
+backup/approval steps. Undo requires a confirmation dialog and current server
+eligibility. An undone attempt offers a fresh-file reimport flow; history remains.
+See [the confirmation and history UI](docs/task-40-import-summary-proposal.md).

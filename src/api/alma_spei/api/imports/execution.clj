@@ -44,7 +44,7 @@
         (assoc :id (str (:id row)) :actor-id (str (:actor-id row)) :occurred-at (decisions/timestamp (:occurred-at row))))))
 (defn outcome [tx batch-id]
   (let [commit (repository/commit-row tx batch-id)]
-    {:batch (imports/public-batch (batches/batch-row tx batch-id))
+    {:uploaded-by-name (repository/uploader-name tx batch-id) :batch (imports/public-batch (batches/batch-row tx batch-id))
      :commit (public-commit tx commit) :undo (public-undo (when commit (repository/undo-row tx (:id commit))))}))
 (defn replay! [row input]
   (when-not (= input (imports/decode-json (:request-context row)))

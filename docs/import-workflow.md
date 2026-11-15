@@ -163,3 +163,24 @@ Backup requests run outside the write transaction and are revalidated afterward.
 Default-disabled synthetic receipts expire after five minutes and are bound to the
 exact preview/catalogue. They create no actual backup. Real operational/privacy
 approval and a real provider remain required before real-data execution.
+
+## Delivered task 40 — explicit staff confirmation and history
+
+The [approved Polish UI](task-40-import-summary-proposal.md) connects existing
+transactional execution to final preview/consent, attributed history/outcomes,
+paged original effects, undo eligibility and a confirmed undo dialog. Merely opening
+a screen, paging or reading a result never creates backup or canonical records.
+Capability reads explain disabled/test mode without enabling it. Uploader labels
+are bounded to visible history pages; outcome labels refer to current account names.
+No core batch schema, database migration or dependency changes.
+
+Approval binds exact preview/digest/catalogue/batch and unexpired receipt identities.
+Context changes clear consent. Repeated clicks are guarded; unknown network results
+require an explicit outcome read and, when needed, an explicit retry of the retained
+original request. No automatic write retry, force flag or optimistic success.
+
+Undo cancellation sends no write. Confirmed undo repeats backend preflight; conflicts
+show fixed Polish explanations and all blocker pages. Retained originals and archive/
+reversal effects remain visible. A new reimport requires a freshly selected file and
+explicit attempt confirmation; the successor inherits no previous decisions. Real
+source reconciliation, backups and production/privacy readiness remain gated.
