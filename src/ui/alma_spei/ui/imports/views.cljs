@@ -42,14 +42,22 @@
                            (let [input (.namedItem (.. event -currentTarget -elements) "file")
                                  selected (aget (.-files input) 0)]
                              (rf/dispatch [:imports/start selected csrf retry? @confirmed])))}
-       [:label {:for "import-file"} "Plik bankowy (CSV lub XLSX)"
+       [:h3 "Wybierz plik z przelewami"]
+       [:p {:class "form-intro"} "Zaczniemy od sprawdzenia pliku. Dane w bazie zmienią się dopiero po Twoim zatwierdzeniu."]
+       [:label {:for "import-file" :class "file-picker"} [:span "Plik bankowy (CSV lub XLSX)"]
         [:input {:id "import-file" :name "file" :type "file" :accept ".csv,.xlsx" :required true :disabled busy?
                  :aria-describedby "import-file-help"
                  :aria-invalid (boolean (:error state))
                  :on-change (fn [event]
                               (reset! confirmed false)
                               (rf/dispatch [:imports/choose-file (file-description (aget (.. event -target -files) 0))]))}]]
-       [:p {:id "import-file-help"} "Maksymalnie 5 MiB. Cztery kolumny bez nagłówka: data, nadawca i adres, opis, kwota. Plik XLSX: jeden arkusz, bez formuł."]
+       [:p {:id "import-file-help" :class "field-help"} "CSV lub XLSX · do 5 MiB · bez nagłówka"]
+       [:details {:class "format-help"}
+        [:summary "Jak przygotować plik?"]
+        [:p "Cztery kolumny w tej kolejności: data, nadawca i adres, opis, kwota. Nie dodawaj wiersza z nazwami kolumn."]
+        [:p "XLSX: jeden arkusz, bez formuł. CSV: kodowanie UTF-8, daty RRRR-MM-DD lub DD.MM.RRRR, kwoty bez separatorów tysięcy."]
+        [:p "Przy przecinku jako separatorze kolumn ujmij kwotę z przecinkiem w cudzysłów."]]
+       (when file [:p {:class "selected-file"} [:strong "Wybrany plik: "] (:name file)])
        (when (events/csv? file)
          [:label {:for "import-separator"} "Separator kolumn CSV"
           [:select {:id "import-separator" :value (:separator state) :required true :disabled busy?
@@ -57,15 +65,13 @@
            [:option {:value ""} "Wybierz separator"]
            [:option {:value ";"} "Średnik (;)"]
            [:option {:value ","} "Przecinek (,)"]]])
-       (when (events/csv? file)
-         [:p "CSV: UTF-8; daty RRRR-MM-DD lub DD.MM.RRRR; kwoty bez separatorów tysięcy. Przy przecinku jako separatorze ujmij kwotę z przecinkiem w cudzysłów."])
        (when retry? [:p "Ponownie wybierz ten sam plik i potwierdź analizę. Serwer sprawdzi zgodność zawartości."])
        (when retry?
          [:label {:class "import-confirmation"}
           [:input {:type "checkbox" :checked @confirmed :disabled busy?
                    :on-change #(reset! confirmed (.. % -target -checked))}]
           " Potwierdzam ponowną analizę tego samego pliku. Poprzednia próba pozostanie w historii."])
-       [:button {:type "submit" :disabled (or busy? (not selectable?) (and retry? (not @confirmed)))}
+       [:button {:type "submit" :class "button-primary" :disabled (or busy? (not selectable?) (and retry? (not @confirmed)))}
         (if retry? "Ponów analizę tego samego pliku" "Prześlij do analizy")]])))
 
 (defn progress-panel [{:keys [progress sent?]}]
@@ -125,26 +131,40 @@
    [:button {:type "button" :disabled (not (and (= status :ready) (< (+ offset limit) total)))
              :on-click #(rf/dispatch [:imports/page :next])} "Następne wiersze"]])
 
+(defn import-steps [report?]
+  [:ol {:class "import-steps" :aria-label "Etapy importu"}
+   (for [[index label] (map-indexed vector ["Plik" "Sprawdzenie danych" "Dopasowanie" "Podsumowanie" "Zatwierdzenie"])]
+     ^{:key label}
+     [:li {:class (cond (= index (if report? 1 0)) "step-current" (and report? (zero? index)) "step-complete" :else "step-upcoming")
+           :aria-current (when (= index (if report? 1 0)) "step")}
+      [:span {:class "step-number" :aria-hidden true} (inc index)] [:span label]])])
+
 (defn panel [refresh-session csrf & [reimport-batch]]
   (r/with-let [_ (rf/dispatch-sync [:imports/open reimport-batch])]
     (let [{:keys [status error batch batch-id] :as state} @(rf/subscribe [:imports/state])
           session-error? (= :session-error status)
           report? (#{:ready :loading :page-error} status)]
       [:section {:class "import-screen" :aria-labelledby "import-heading" :aria-busy (boolean (events/active? state))}
-       [:h2 {:id "import-heading" :tab-index -1 :ref focus-heading} "Import przelewów bankowych"]
-       [:p "Prześlij plik i sprawdź raport analizy. Dopasowanie darczyńców i zatwierdzenie zmian nastąpią w kolejnych krokach."]
-       [:p {:class "import-development-note"} "Na tym etapie używaj wyłącznie danych syntetycznych."]
+       [:header {:class "page-heading"}
+        [:p {:class "eyebrow"} "NOWY IMPORT"]
+        [:h2 {:id "import-heading" :tab-index -1 :ref focus-heading} "Import przelewów"]
+        [:p "Od pliku z banku do sprawdzonych wpłat. Poprowadzimy Cię przez kolejne kroki."]]
+       [import-steps report?]
+       [:p {:class "import-development-note"} [:strong "Wersja testowa. "] "Używaj wyłącznie danych syntetycznych."]
        (when error [:div {:role "alert"} [:p (get errors error "Nie udało się przeanalizować pliku.")]
                     (when (= :duplicate error) [:a {:href "#imports/history/0"} "Otwórz historię importów"])])
        (cond
          session-error? [:button {:type "button" :on-click refresh-session} "Odśwież sesję"]
          report? [:<>
                   [summary state]
+                  (when (= "review" (:state batch))
+                    [:div {:class "next-step-card"}
+                     [:div [:h3 "Następny krok: dopasuj darczyńców"]
+                      [:p "Przejrzyj wiersze i wskaż, do kogo należy każdy przelew. Błędy w danych pozostają widoczne w raporcie."]]
+                     [:a {:href (str "#review/" (:id batch) "/0") :class "button-primary"} "Przejdź do weryfikacji"]])
                   (when (= :loading status) [:p {:role "status"} "Pobieranie raportu…"])
                   [report-table state] [pagination state]
-                  [:button {:type "button" :disabled (= :loading status) :on-click #(rf/dispatch [:imports/reload])} "Odśwież raport"]
-                  (when (= "review" (:state batch))
-                    [:a {:href (str "#review/" (:id batch) "/0") :class "review-open"} "Przejdź do weryfikacji"])]
+                  [:button {:type "button" :disabled (= :loading status) :on-click #(rf/dispatch [:imports/reload])} "Odśwież raport"]]
          (= :uncertain status) [:div [:p "Możesz sprawdzić znany import albo odszukać nową próbę w historii. Nie przesyłamy pliku ponownie automatycznie."]
                                 [:a {:href "#imports/history/0"} "Otwórz historię importów"]]
          :else [:<>

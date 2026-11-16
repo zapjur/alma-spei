@@ -27,7 +27,7 @@ browsing and manual matching; uploading alone needs no seeded donors.
 
 ## Upload checks
 
-Open **Import przelewów**. CSV files are UTF-8, have no header and use `;` as the
+Open **Nowy import** in the sidebar (or **Importuj przelewy** on Start). CSV files are UTF-8, have no header and use `;` as the
 explicit separator. The four columns are date, sender, description and amount.
 Do not open/resave the supplied files in Excel before the first test.
 
@@ -44,7 +44,7 @@ different from a structurally unreadable file. Negative amounts are accepted by 
 parser; staging does not approve their financial interpretation or final commit.
 Use browser Developer Tools → Network to inspect statuses if needed.
 
-After upload, open **Weryfikacja importów**, reopen the batch, navigate rows and
+After upload, open **Do weryfikacji**, reopen the batch, navigate rows and
 reload. The staged batch should persist. Donor/payment totals must remain unchanged
 by uploading or browsing. Commit is disabled by default; its separate synthetic
 test configuration is documented in task 39 and must not be mistaken for a real backup.

@@ -31,6 +31,15 @@ Hospice staff, potentially with varied technical skills. Keep all end-user conte
 
 Actual filters/columns, export selections, accessibility target, navigation structure, visual identity and whether employees require printouts depend on stakeholder review.
 
+## Approved guided workspace direction
+
+The user approved the [first redesign slice](ui-redesign.md): a persistent grouped
+sidebar, task-led home screen and guided upload/analysis view, with warm neutral
+surfaces, teal accents and clearer action hierarchy. The shell adapts to a compact
+expandable menu on narrow screens. This updates the initial navigation/visual
+direction; hospice branding and staff usability acceptance remain open. Other
+screens retain their established information layout pending later redesign work.
+
 ## Delivered synthetic import confirmation — Task #40
 
 The [approved screens](task-40-import-summary-proposal.md) provide separate final
