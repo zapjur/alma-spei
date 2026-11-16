@@ -51,6 +51,10 @@ layout inside the new shell. Extending the guided layout across those screens,
 final hospice branding and staff usability feedback remain subsequent work.
 Native Windows acceptance from task 50 remains separately open.
 
+The separately approved [second slice](guided-import-review.md) now extends the
+guided workflow through import review, summary, confirmation and history. Donor
+details and final branding remain separate follow-up work.
+
 ## Verification
 
 `bb check` passed on the existing Temurin 25.0.5+8 setup: lint/format, 56 JVM

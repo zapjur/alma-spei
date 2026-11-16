@@ -3,6 +3,7 @@
             [alma-spei.ui.imports.decision-effects :as effects]
             [alma-spei.ui.imports-test :as fixture]
             [alma-spei.ui.review-test :as review]
+            [alma-spei.ui.imports.review-events :as review-events]
             [cljs.test :refer-macros [deftest is async]]))
 
 (defn ready []
@@ -90,3 +91,75 @@
         result (events/loaded (:db request) [:decision/loaded [:editor] (get-in request [:decision/request :request-id]) :proposal-update
                                              {:data {:catalog-version 999 :batch fixture/batch :proposal {}}}])]
     (is (= 5 (get-in result [:db :review :editor :catalog-version])))))
+
+(defn complete-draft []
+  (reduce (fn [db [field value]] (events/field db [:decision/field [:financial field] value]))
+          (selected) [[:currency "PLN"] [:evidence "Fikcyjny wyciąg PLN; sprawdzono wcześniejsze wpłaty."]
+                      [:disposition "new"] [:overlap-checked true]]))
+
+(deftest save-and-next-waits-for-confirmed-complete-save
+  (let [db (complete-draft)
+        saving (events/save-next db [:decision/save-next "csrf"])
+        id (get-in saving [:decision/request :request-id])
+        decision (assoc (events/build-input (:review db)) :complete true)
+        response {:data {:catalog-version 5 :batch fixture/batch :decision decision}}
+        result (events/loaded (:db saving) [:decision/loaded [:editor] id :decision-save response])]
+    (is (events/complete-saveable? (:review db)))
+    (is (nil? (:dispatch saving)))
+    (is (= [:review/advance "csrf"] (:dispatch result)))
+    (is (not (events/dirty? (:review (:db result)))))
+    (doseq [error [:validation :conflict :uncertain :unauthenticated]]
+      (let [failed (events/loaded (:db saving) [:decision/loaded [:editor] id :decision-save {:error error}])]
+        (is (nil? (:dispatch failed)))
+        (is (nil? (get-in failed [:db :review :editor :advance-after-save])))))
+    (is (= {:db db} (events/loaded db [:decision/loaded [:editor] id :decision-save response])))
+    (is (nil? (:dispatch (events/loaded (:db saving) [:decision/loaded [:editor] id :decision-save
+                                                      (assoc-in response [:data :decision :complete] false)]))))))
+
+(deftest incomplete-invalid-and-negative-rows-cannot-advance-by-saving
+  (doseq [db [(selected)
+              (assoc-in (complete-draft) [:review :editor :row :validation-state] "invalid")
+              (assoc-in (complete-draft) [:review :editor :row :payload :amount] "-25.00")]]
+    (is (nil? (:decision/request (events/save-next db [:decision/save-next "csrf"]))))))
+
+(deftest advance-selects-next-row-pages-and-opens-summary-without-skipping-a-draft
+  (let [db (ready) second-row (assoc fixture/row :row-number 8)
+        two-rows (assoc-in db [:review :work :rows] [fixture/row second-row])
+        next-row (review-events/advance two-rows [:review/advance "csrf"])]
+    (is (= {:worksheet 1 :row 8} (get-in next-row [:db :review :selected])))
+    (is (= :decision-load (get-in next-row [:decision/request :op])))
+    (let [last-row (-> db (assoc-in [:review :work :total] 1) (assoc-in [:review :work :rows] [fixture/row]))
+          result (review-events/advance last-row [:review/advance "csrf"])]
+      (is (= :summary (get-in result [:db :review :stage])))
+      (is (= [:decision/preview "csrf"] (:dispatch result))))
+    (let [last-on-page (assoc-in db [:review :selected] {:worksheet 1 :row 25})
+          result (review-events/advance last-on-page [:review/advance "csrf"])]
+      (is (= 25 (get-in result [:review/request :offset])))
+      (is (nil? (get-in result [:db :review :editor]))))
+    (is (= {:db (selected)} (review-events/advance (selected) [:review/advance "csrf"])))))
+
+(deftest choosing-new-profile-on-save-is-explicit
+  (let [db (-> (ready)
+               (assoc-in [:review :editor :use-after-save] true)
+               (assoc-in [:review :editor :request-id] 99))
+        result (events/loaded db [:decision/loaded [:editor] 99 :proposal-create
+                                  {:data {:batch fixture/batch :proposal {:id fixture/other-id :version 2}}}])]
+    (is (= "new-proposal" (get-in result [:db :review :editor :draft :kind])))
+    (is (= 2 (get-in result [:db :review :editor :draft :target-version])))
+    (is (= "" (get-in result [:db :review :editor :draft :financial :currency])))
+    (is (nil? (:dispatch result)))))
+
+(deftest blocker-navigation-finds-physical-row-across-pages-and-ignores-stale-results
+  (let [started (review-events/find-row (ready) [:review/find-row 1 73])
+        first-id (get-in started [:review/request :request-id])
+        first-page (assoc review/page :rows [fixture/row] :offset 0 :limit 25 :total 26)
+        next-page (review-events/loaded (:db started) [:review/loaded :rows first-id {:data first-page}])
+        next-id (get-in next-page [:review/request :request-id])
+        found (review-events/loaded (:db next-page)
+                                    [:review/loaded :rows next-id {:data (assoc first-page :offset 25 :rows [(assoc fixture/row :row-number 73)])}])]
+    (is (= 25 (get-in next-page [:review/request :offset])))
+    (is (= {:worksheet 1 :row 73} (get-in found [:db :review :selected])))
+    (is (= :decision-load (get-in found [:decision/request :op])))
+    (is (nil? (get-in found [:db :review :find-row])))
+    (is (= {:db (:db next-page)}
+           (review-events/loaded (:db next-page) [:review/loaded :rows first-id {:data first-page}])))))

@@ -43,7 +43,8 @@
                       :donation-id nil :donation-version nil)
         (assoc-in [:review :editor :draft :financial :disposition] "unresolved")
         (assoc-in [:review :editor :draft :financial :overlap-checked] false)
-        (update-in [:review :aux] dissoc :payments)) db))
+        (update-in [:review :aux] dissoc :payments)
+        (assoc-in [:review :choosing] false)) db))
 (defn build-input [state]
   (let [editor (:editor state) draft (:draft editor)]
     (-> draft (assoc :catalog-version (:catalog-version editor) :batch-version (:batch-version editor) :version (or (get-in editor [:current :version]) 0))
@@ -53,6 +54,21 @@
   (let [input (build-input state)]
     (and (editable? (:editor state)) (validation/valid? contract/decision-input input)
          (or (not= "existing" (get-in input [:financial :disposition])) (contract/complete? input)))))
+(defn complete-saveable? [state]
+  (let [row (get-in state [:editor :row])]
+    (and (saveable? state) (contract/complete? (build-input state))
+         (= "valid" (:validation-state row))
+         (not (str/starts-with? (or (get-in row [:payload :amount]) "") "-")))))
+(defn choose-mode [db [_ mode]]
+  (if (and (editable? (get-in db [:review :editor])) (#{:existing :new :reuse} mode))
+    (-> db (assoc-in [:review :choice] mode) (assoc-in [:review :choosing] true)
+        (update-in [:review :editor] dissoc :proposal-form)) db))
+(defn save-next [db [_ csrf]]
+  (if (and csrf (complete-saveable? (:review db)))
+    (let [result (request db [:editor] :decision-save
+                          (merge (get-in db [:review :selected]) {:csrf csrf :input (build-input (:review db))}))]
+      (-> result (assoc-in [:db :review :editor :status] :saving)
+          (assoc-in [:db :review :editor :advance-after-save] csrf))) {:db db}))
 (defn save [db [_ csrf clear?]]
   (let [state (:review db)
         db (if clear? (assoc-in db [:review :editor :draft] empty-draft) db)
@@ -84,7 +100,7 @@
   (let [form (get-in state [:editor :proposal-form])]
     (and (editable? (:editor state)) form (validation/valid? donors/create-donor (profile-input form))
          (or (:id form) (and (:checked-existing form) (:checked-proposals form))))))
-(defn save-proposal [db [_ csrf]]
+(defn save-proposal [db [_ csrf use?]]
   (let [state (:review db) form (get-in state [:editor :proposal-form])
         update? (:id form)
         input (cond-> {:batch-version (get-in state [:editor :batch-version]) :profile (profile-input form)}
@@ -92,7 +108,8 @@
                 (not update?) (assoc :checked-existing true :checked-proposals true :catalog-version (get-in state [:editor :catalog-version])))]
     (if (and csrf (proposal-saveable? state))
       (let [result (request db [:editor] (if update? :proposal-update :proposal-create) {:csrf csrf :input input :proposal-id (:id form)})]
-        (assoc-in result [:db :review :editor :status] :saving)) {:db db})))
+        (-> result (assoc-in [:db :review :editor :status] :saving)
+            (assoc-in [:db :review :editor :use-after-save] (true? use?)))) {:db db})))
 (defn choose-payment [db [_ id]]
   (if-let [payment (some #(when (= id (:id %)) %) (get-in db [:review :aux :payments :data :payments]))]
     (if (editable? (get-in db [:review :editor]))
@@ -115,21 +132,29 @@
         {:db (assoc db :review {:mode :session-error :error error}) :decision/abort nil :review/abort nil}
         error (let [mutation? (contains? #{:decision-save :proposal-create :proposal-update} op)
                     result {:db (update-in db (into [:review] slot) assoc :status (if mutation? :ready :error) :error error
-                                           :requires-reload (and mutation? (contains? #{:conflict :uncertain} error)))}]
+                                           :requires-reload (and mutation? (contains? #{:conflict :uncertain} error)))}
+                    result (if mutation? (update result :db update-in [:review :editor] dissoc :advance-after-save :use-after-save) result)]
                 (if (= error :blocked) (assoc result :dispatch [:decision/aux :blockers 0]) result))
         (= op :decision-load)
-        {:db (-> db (assoc-in [:review :editor] {:status :ready :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
+        {:db (-> db (assoc-in [:review :editor] {:status :ready :row (:row data) :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
                                                  :draft (draft-from (:decision data)) :initial (draft-from (:decision data))})
                  (assoc-in [:review :work :batch] (:batch data)))}
         (= op :decision-save)
-        {:db (-> db (update-in [:review :editor] assoc :status :ready :error nil :requires-reload false
-                               :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
-                               :draft (draft-from (:decision data)) :initial (draft-from (:decision data)) :notice :decision-saved)
-                 (assoc-in [:review :work :batch] (:batch data)) (update :review dissoc :preview :aux))}
+        (let [advance (get-in db [:review :editor :advance-after-save])
+              result (-> db (update-in [:review :editor] assoc :status :ready :error nil :requires-reload false
+                                       :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
+                                       :draft (draft-from (:decision data)) :initial (draft-from (:decision data)) :notice :decision-saved)
+                         (update-in [:review :editor] dissoc :advance-after-save)
+                         (assoc-in [:review :work :batch] (:batch data)) (update :review dissoc :preview :aux))]
+          (cond-> {:db result} (and advance (get-in data [:decision :complete])) (assoc :dispatch [:review/advance advance])))
         (contains? #{:proposal-create :proposal-update} op)
-        {:db (-> db (update-in [:review :editor] assoc :status :ready :error nil :requires-reload false :notice :proposal-saved
-                               :batch-version (get-in data [:batch :version]) :saved-proposal (:proposal data) :proposal-form nil)
-                 (assoc-in [:review :work :batch] (:batch data)) (update :review dissoc :preview :aux))}
+        (let [use? (get-in db [:review :editor :use-after-save])
+              proposal (:proposal data)
+              result (-> db (update-in [:review :editor] assoc :status :ready :error nil :requires-reload false :notice :proposal-saved
+                                       :batch-version (get-in data [:batch :version]) :saved-proposal proposal :proposal-form nil)
+                         (update-in [:review :editor] dissoc :use-after-save)
+                         (assoc-in [:review :work :batch] (:batch data)) (update :review dissoc :preview :aux))]
+          {:db (if use? (choose-target result [:decision/target "new-proposal" (:id proposal) (:version proposal)]) result)})
         (contains? #{:preview-create :preview-load} op)
         {:db (assoc-in db [:review :preview] {:status :ready :data data}) :dispatch [:decision/aux :items 0]}
         :else {:db (assoc-in db (into [:review] slot) {:status :ready :data data})})))
@@ -147,3 +172,6 @@
 (rf/reg-event-fx :decision/preview (with-db create-preview))
 (rf/reg-event-fx :decision/open-preview (with-db load-preview))
 (rf/reg-event-fx :decision/loaded (with-db loaded))
+
+(rf/reg-event-db :decision/mode choose-mode)
+(rf/reg-event-fx :decision/save-next (with-db save-next))

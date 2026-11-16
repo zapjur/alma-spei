@@ -16,7 +16,8 @@
     (is (= 2650.0000M (reduce + (map :amount payments))))
     (is (every? #(= "PLN" (:currency %)) payments))
     (is (every? (set (map :id donors)) (map :donor-id payments)))
-    (is (every? #(.startsWith ^String (:name %) "DANE SYNTETYCZNE — ") donors))
+    (is (= ["Jan Kowalski" "Jan Kowalski" "Jakub Nowak"] (mapv :name (take 3 donors))))
+    (is (every? #(re-matches #"[0-9]{2}-[0-9]{3}" (:postal-code %)) donors))
     (is (nil? (demo/validate-data! fixtures)))
     (is (= {:donors 20 :payments 30 :active 18 :archived 2
             :entity-types {"individual" 12 "business" 4 "organization" 4} :total-pln 2650.0000M}

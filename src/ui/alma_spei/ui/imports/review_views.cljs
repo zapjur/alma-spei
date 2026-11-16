@@ -1,10 +1,12 @@
 (ns alma-spei.ui.imports.review-views
   (:require [alma-spei.ui.imports.review-events]
             [alma-spei.ui.imports.decision-views :as decisions]
+            [alma-spei.ui.imports.decision-events :as editing]
             [alma-spei.ui.imports.review-effects]
             [alma-spei.ui.imports.views :as uploads]
             [alma-spei.common.contracts.imports :as imports]
             [alma-spei.ui.donors.labels :as labels]
+            [clojure.string :as str]
             [re-frame.core :as rf]
             [reagent.core :as r]))
 
@@ -27,7 +29,7 @@
 (defn progress [batch]
   (let [valid (or (:valid-rows batch) 0) reviewed (or (:reviewed-rows batch) 0)]
     [:div {:class "review-progress"}
-     [:p {:role "status"} (str "Zapisane kompletne decyzje: " reviewed " z " valid " poprawnych wierszy. Wiersze z błędami: " (or (:invalid-rows batch) 0) ".")]
+     [:p {:role "status"} (str "Sprawdzone przelewy: " reviewed " z " valid " poprawnych wierszy. Błędy w pliku: " (or (:invalid-rows batch) 0) ".")]
      [:progress {:max (max 1 valid) :value reviewed :aria-label "Postęp zapisanej weryfikacji"}]]))
 (defn queue-panel [{:keys [queue]}]
   [:section {:aria-busy (= :loading (:status queue))}
@@ -77,7 +79,7 @@
 (defn search-panel [{:keys [search selected]}]
   (when selected
     [:section {:class "review-search" :aria-busy (= :loading (:status search))}
-     [:h4 "Wyszukaj darczyńcę do porównania"]
+     [:h4 "Znajdź darczyńcę w bazie"]
      [:form {:on-submit (fn [e] (.preventDefault e) (rf/dispatch [:review/search]))}
       [:label {:for "review-search"} "Nazwisko lub nazwa"
        [:input {:id "review-search" :type "search" :value (:draft search) :max-length 200
@@ -97,34 +99,105 @@
          [:p (str (get labels/entity-types (:entity-type donor)) " · " (if (:is-active donor) "Aktywny" "Archiwalny"))]
          [:p (str (uploads/display-value (:street donor)) ", " (uploads/display-value (:postal-code donor)) " " (uploads/display-value (:city donor)))]
          [:button {:type "button" :aria-label (str "Porównaj profil " (:name donor) ", " (uploads/display-value (:city donor)))
-                   :on-click #(rf/dispatch [:review/compare (:id donor)])} "Porównaj"]])]
+                   :on-click #(rf/dispatch [:review/compare (:id donor)])} "Sprawdź tego darczyńcę"]])]
      [pager search :review/search-page "Strony wyników wyszukiwania darczyńców"]]))
-(defn batch-panel [{:keys [work selected] :as state} csrf]
-  (let [row (some #(when (and (= (:worksheet selected) (:worksheet-index %)) (= (:row selected) (:row-number %))) %) (:rows work))]
+(defn donor-choice [state csrf]
+  (let [editor (:editor state) draft (:draft editor) donor (get-in state [:comparison :donor])
+        chosen? (and draft (not= "unresolved" (:kind draft)) (not (:choosing state)))
+        mode (:choice state) proposals (get-in state [:aux :proposals])
+        choose (fn [mode] (when (decisions/allow-leave!)
+                            (rf/dispatch [:decision/mode mode])
+                            (case mode :new (rf/dispatch [:decision/proposal-form nil])
+                                  :reuse (rf/dispatch [:decision/aux :proposals 0]) nil)))]
+    [:section {:class "donor-choice" :aria-labelledby "donor-choice-heading"}
+     [:h3 {:id "donor-choice-heading"} "1. Kto przekazał tę wpłatę?"]
+     (if chosen?
+       [:div {:class "chosen-donor"}
+        [:div [:span "Wybrany darczyńca"] [:strong (decisions/target-label state)]
+         (when (= "new-proposal" (:kind draft)) [:p "Nowy profil powstanie dopiero po zatwierdzeniu całego importu."])]
+        [:button {:type "button" :disabled (not (editing/editable? editor)) :on-click #(choose :existing)} "Zmień darczyńcę"]]
+       [:<>
+        [:p "Sprawdź nadawcę z pliku po lewej. Wybierz osobę lub organizację z bazy albo przygotuj nowy profil."]
+        [:div {:class "donor-choice-actions"}
+         [:button {:type "button" :class (when (= mode :existing) "button-primary") :disabled (not (editing/editable? editor))
+                   :on-click #(choose :existing)} "Wybierz darczyńcę z bazy"]
+         [:button {:type "button" :class (when (= mode :new) "button-primary") :disabled (not (editing/editable? editor))
+                   :on-click #(choose :new)} "Dodaj nowego darczyńcę"]]
+        (when (= mode :existing)
+          [:<> [search-panel state]
+           (when (or donor (= :loading (get-in state [:comparison :status])) (get-in state [:comparison :error]))
+             [:div [donor-card state]
+              (when donor
+                [:button {:type "button" :class "button-primary" :disabled (or (not (editing/editable? editor)) (not (:is-active donor)))
+                          :on-click #(when (decisions/allow-leave!) (rf/dispatch [:decision/target "existing-donor" (:id donor) (:version donor)]))} "Przypisz wpłatę temu darczyńcy"])
+              (when (and donor (not (:is-active donor))) [:p "Ten profil jest archiwalny. Wybierz aktywnego darczyńcę."])])])
+        (when (= mode :new) [decisions/proposal-form state csrf])
+        [:button {:type "button" :class "button-quiet" :disabled (not (editing/editable? editor)) :on-click #(choose :reuse)} "Użyj nowego darczyńcy przygotowanego w tym imporcie"]
+        (when (= mode :reuse)
+          [:div [:p "Jeśli kilka przelewów pochodzi od tej samej nowej osoby, użyj tego samego przygotowanego profilu."]
+           [decisions/error-text proposals]
+           (when (= :loading (:status proposals)) [:p {:role "status"} "Pobieranie profili…"])
+           (when (and (= :ready (:status proposals)) (empty? (get-in proposals [:data :proposals]))) [:p "Nie przygotowano jeszcze nowych darczyńców. Wybierz „Dodaj nowego darczyńcę”."])
+           (for [proposal (get-in proposals [:data :proposals])] ^{:key (:id proposal)} [decisions/proposal-choice state proposal])
+           [decisions/aux-pager :proposals proposals]])])]))
+
+(defn batch-panel [{:keys [work selected stage] :as state} csrf]
+  (let [row (some #(when (= selected {:worksheet (:worksheet-index %) :row (:row-number %)}) %) (:rows work))
+        index (first (keep-indexed #(when (= row %2) %1) (:rows work)))
+        batch (:batch work)]
     [:section {:aria-busy (= :loading (:status work))}
-     [:button {:type "button" :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/back]))} "Wróć do kolejki"]
-     [:button {:type "button" :disabled (= :loading (:status work)) :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/reload]))} "Odśwież wiersze i postęp"]
-     (when-let [batch (:batch work)] [:<> [:h3 {:id "review-batch-heading" :tab-index -1 :ref uploads/focus-heading} (:original-filename batch)] [progress batch]])
+     [:div {:class "review-batch-bar"}
+      [:button {:type "button" :class "button-quiet" :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/back]))} "Wszystkie importy"]
+      [:span (:original-filename batch)]]
+     (when batch
+       [:header {:class "review-work-heading"}
+        [:h3 {:key (str selected stage) :id "review-batch-heading" :tab-index -1 :ref uploads/focus-heading}
+         (if (= stage :summary) "Sprawdź planowane zmiany" (str "Przelew " (when index (+ (:offset work) index 1)) " z " (:total work)))]
+        [progress batch]])
      [error-panel (:error work) #(when (decisions/allow-leave!) (rf/dispatch [:review/reload]))]
+     (when (and (not= stage :summary) (pos? (or (:valid-rows batch) 0))
+                (= (:valid-rows batch) (:reviewed-rows batch)) (zero? (or (:invalid-rows batch) 0)))
+       [:div {:class "next-step-card"}
+        [:div [:h3 "Wszystkie przelewy zostały sprawdzone"] [:p "Przejdź do podsumowania, aby sprawdzić planowane zmiany."]]
+        [:button {:type "button" :class "button-primary" :disabled (or (editing/dirty? state) (editing/busy? state))
+                  :on-click #(rf/dispatch [:review/summary csrf])} "Przejdź do podsumowania"]])
      (cond
-       (= :loading (:status work)) [:p {:role "status"} "Pobieranie wierszy importu…"]
+       (= :loading (:status work)) [:p {:role "status"} "Pobieranie przelewów…"]
        (= :closed (:status work)) [:p {:role "status"} "Ten import nie oczekuje na weryfikację. Wróć do aktualnej kolejki."]
        (= :ready (:status work))
        [:<>
-        [:label {:for "review-row"} "Wiersz do porównania"
-         [:select {:id "review-row" :value (if selected (str (:worksheet selected) ":" (:row selected)) "")
-                   :on-change (fn [e]
-                                (let [value (.. e -target -value)
-                                      row (some #(when (= value (str (:worksheet-index %) ":" (:row-number %))) %) (:rows work))]
-                                  (if (and row (decisions/allow-leave!)) (rf/dispatch [:review/select-row (:worksheet-index row) (:row-number row)]) (set! (.. e -target -value) (str (:worksheet selected) ":" (:row selected))))))}
-          (for [row (:rows work)]
-            ^{:key (str (:worksheet-index row) ":" (:row-number row))}
-            [:option {:value (str (:worksheet-index row) ":" (:row-number row))}
-             (str "Arkusz " (:worksheet-index row) ", wiersz " (:row-number row) (when (= "invalid" (:validation-state row)) " — błędy"))])]]
-        [pager work :review/page "Strony wierszy importu"]
-        [:div {:class "review-comparison"} [source-card row] [donor-card state]]
-        [search-panel state]
-        [decisions/panel state csrf]])]))
+        (when-not (= stage :summary)
+          [:<>
+           [:details {:class "review-secondary"}
+            [:summary "Wybierz inny przelew lub stronę"]
+            [:label {:for "review-row"} "Przelew"
+             [:select {:id "review-row" :value (if selected (str (:worksheet selected) ":" (:row selected)) "")
+                       :on-change (fn [e]
+                                    (let [value (.. e -target -value)
+                                          row (some #(when (= value (str (:worksheet-index %) ":" (:row-number %))) %) (:rows work))]
+                                      (if (and row (decisions/allow-leave!)) (rf/dispatch [:review/select-row (:worksheet-index row) (:row-number row)])
+                                          (set! (.. e -target -value) (str (:worksheet selected) ":" (:row selected))))))}
+              (for [row (:rows work)]
+                ^{:key (str (:worksheet-index row) ":" (:row-number row))}
+                [:option {:value (str (:worksheet-index row) ":" (:row-number row))}
+                 (str "Wiersz " (:row-number row) " · " (get-in row [:payload :sender]) (when (= "invalid" (:validation-state row)) " — błędy"))])]]
+            [pager work :review/page "Strony przelewów"]]
+           [:div {:class "guided-review"}
+            [source-card row]
+            [:div {:class "guided-review-editor"}
+             (when (= "invalid" (:validation-state row))
+               [:p {:role "alert" :class "notice notice-error"} "Ten przelew zawiera błędy. Popraw plik i prześlij poprawioną wersję jako nowy import. Zmiana darczyńcy nie naprawi błędów źródłowych."])
+             (when (or (= "invalid" (:validation-state row)) (str/starts-with? (or (get-in row [:payload :amount]) "") "-"))
+               [:div {:class "review-checklist"}
+                (when (str/starts-with? (or (get-in row [:payload :amount]) "") "-") [:p "Kwota jest ujemna. Zatwierdzenie tego przelewu jest zablokowane do ustalenia zasad zwrotów."])
+                [:button {:type "button" :on-click #(when (decisions/allow-leave!) (rf/dispatch [:review/advance csrf]))} "Sprawdź kolejny przelew bez zapisywania"]])
+             [donor-choice state csrf]
+             [decisions/panel state csrf]]]
+           [:div {:class "review-summary-action"}
+            [:button {:type "button" :disabled (or (editing/dirty? state) (editing/busy? state))
+                      :on-click #(rf/dispatch [:review/summary csrf])} "Przejdź do podsumowania"]
+            [:p {:class "field-help"} "Podsumowanie sprawdzi wszystkie przelewy. Jeśli czegoś brakuje, pokaże listę do uzupełnienia."]]])
+        (when (= stage :summary) [decisions/panel state csrf])])]))
 (defn panel [refresh-session route csrf]
   (r/with-let [last-route (volatile! route)
                _ (rf/dispatch-sync [:review/open route])]
@@ -133,9 +206,12 @@
       (rf/dispatch-sync [:review/open route]))
     (let [state @(rf/subscribe [:review/state])]
       [:section {:class "review-screen" :aria-labelledby "review-heading"}
-       [:h2 {:id "review-heading" :tab-index -1 :ref uploads/focus-heading} "Weryfikacja importów"]
-       [:p "Porównaj oryginalny wiersz z wybranym profilem. Wyszukanie lub obejrzenie profilu nie zapisuje decyzji o powiązaniu."]
-       [:p {:class "import-development-note"} "Na tym etapie używaj wyłącznie danych syntetycznych. Zapis decyzji i podgląd nie stosują zmian w bazie darczyńców ani wpłat."]
+       [:header {:class "page-heading"}
+        [:p {:class "eyebrow"} "IMPORT PRZELEWÓW"]
+        [:h2 {:id "review-heading" :tab-index -1 :ref uploads/focus-heading} (if (= :batch (:mode state)) "Sprawdź przelewy" "Dokończ rozpoczęty import")]
+        [:p (if (= :batch (:mode state)) "Dla każdego przelewu wybierz darczyńcę i sprawdź wpłatę. Potem kliknij „Zapisz i przejdź dalej”." "Wybierz plik z listy, aby wrócić do sprawdzania przelewów.")]]
+       (when (= :batch (:mode state)) [uploads/import-steps (if (= :summary (:stage state)) 3 2)])
+       [:p {:class "import-development-note"} "Wersja testowa · tylko fikcyjne dane. Zmiany zostaną zastosowane dopiero po zatwierdzeniu całego importu."]
        (case (:mode state)
          :session-error [:<> [:p {:role "alert"} (get errors (:error state))]
                          [:button {:type "button" :on-click refresh-session} "Odśwież sesję"]]

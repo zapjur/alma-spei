@@ -5,6 +5,7 @@
             [alma-spei.common.validation :as validation]
             [alma-spei.dev.bank-fixtures :as fixture]
             [clojure.string :as str]
+            [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]])
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
@@ -18,6 +19,17 @@
 (defn csv [text separator] (parse-bytes (.getBytes ^String text "UTF-8") "csv" separator))
 (defn xlsx [parts] (parse-bytes (fixture/zip-bytes parts) "xlsx" nil))
 (defn error-code [f] (try (f) nil (catch clojure.lang.ExceptionInfo e (:code (ex-data e)))))
+
+(deftest manual-happy-path-samples-are-positive-and-equivalent
+  (let [csv (bank/parse! (io/file "docs/testing-samples/bank-valid.csv") "csv" ";")
+        xlsx (bank/parse! (io/file "docs/testing-samples/bank-valid.xlsx") "xlsx" nil)
+        fields [:date :sender :description :amount]]
+    (is (= 3 (count (:rows csv)) (count (:rows xlsx))))
+    (is (every? #(= "valid" (:validation-state %)) (concat (:rows csv) (:rows xlsx))))
+    (is (= (mapv #(select-keys (:payload %) fields) (:rows csv))
+           (mapv #(select-keys (:payload %) fields) (:rows xlsx))))
+    (is (= 250M (reduce + (map #(bigdec (get-in % [:payload :amount])) (:rows csv)))))
+    (is (every? #(pos? (bigdec (get-in % [:payload :amount]))) (:rows csv)))))
 
 (deftest exact-amounts-and-strict-dates
   (doseq [[input expected] [["9999999999999999.9999" "9999999999999999.9999"] ["-2,5000" "-2.5000"] ["+12" "12"]]]
@@ -48,7 +60,7 @@
     (is (= ["valid" "valid"] (mapv :validation-state rows)))
     (is (= ["12.3400" "-2.50"] (mapv #(get-in % [:payload :amount]) rows)))
     (is (= "2026-01-02" (get-in rows [0 :payload :date])))
-    (is (= "Synthetic description" (get-in rows [0 :payload :description]))))
+    (is (= "Darowizna na cele statutowe" (get-in rows [0 :payload :description]))))
   (doseq [[epoch serial expected] [[false "1" "1900-01-01"] [false "59" "1900-02-28"] [false "61" "1900-03-01"]
                                    [true "0" "1904-01-01"] [true "1" "1904-01-02"]]]
     (let [sheet (str/replace fixture/sample-sheet "46024" serial)]

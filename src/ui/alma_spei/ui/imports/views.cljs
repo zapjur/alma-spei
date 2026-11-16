@@ -131,13 +131,14 @@
    [:button {:type "button" :disabled (not (and (= status :ready) (< (+ offset limit) total)))
              :on-click #(rf/dispatch [:imports/page :next])} "Następne wiersze"]])
 
-(defn import-steps [report?]
-  [:ol {:class "import-steps" :aria-label "Etapy importu"}
-   (for [[index label] (map-indexed vector ["Plik" "Sprawdzenie danych" "Dopasowanie" "Podsumowanie" "Zatwierdzenie"])]
-     ^{:key label}
-     [:li {:class (cond (= index (if report? 1 0)) "step-current" (and report? (zero? index)) "step-complete" :else "step-upcoming")
-           :aria-current (when (= index (if report? 1 0)) "step")}
-      [:span {:class "step-number" :aria-hidden true} (inc index)] [:span label]])])
+(defn import-steps [step]
+  (let [current (if (number? step) step (if step 1 0))]
+    [:ol {:class "import-steps" :aria-label "Etapy importu"}
+     (for [[index label] (map-indexed vector ["Plik" "Sprawdzenie danych" "Dopasowanie" "Podsumowanie" "Zatwierdzenie"])]
+       ^{:key label}
+       [:li {:class (cond (= index current) "step-current" (< index current) "step-complete" :else "step-upcoming")
+             :aria-current (when (= index current) "step")}
+        [:span {:class "step-number" :aria-hidden true} (inc index)] [:span label]])]))
 
 (defn panel [refresh-session csrf & [reimport-batch]]
   (r/with-let [_ (rf/dispatch-sync [:imports/open reimport-batch])]

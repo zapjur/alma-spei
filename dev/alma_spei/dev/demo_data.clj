@@ -1,6 +1,6 @@
 (ns alma-spei.dev.demo-data
   (:import [java.time LocalDate]
-           [java.util Locale UUID]))
+           [java.util UUID]))
 
 (def expected {:donors 20 :payments 30 :active 18 :archived 2
                :entity-types {"individual" 12 "business" 4 "organization" 4}
@@ -10,12 +10,16 @@
   (UUID/nameUUIDFromBytes (.getBytes (str "alma-spei:synthetic-demo:v1:" (name kind) ":" n) "UTF-8")))
 
 (def people
-  [["Łukasz" "Próbowy"] ["Łukasz" "Próbowy"] ["Żaneta" "Testowa"]
-   ["Łucja" "Wzorcowa"] ["Michał" "Próbny"] ["Paweł" "Wymyślony"]
-   ["Zofia" "Demonstracyjna"] ["Jerzy" "Fikcyjny"] ["Anna" "Przykładowa"]
-   ["Grzegorz" "Ćwiczebny"] ["Emilia" "Wzorowa"] ["Czesław" "Pokazowy"]])
-(def businesses ["Firma Żuraw" "Firma Łąka" "Firma Ćma" "Firma Świerk"])
-(def organizations ["Fundacja Żółwia" "Stowarzyszenie Łodzi" "Koło Ćwiczeń" "Organizacja Wzorów"])
+  [["Jan" "Kowalski"] ["Jan" "Kowalski"] ["Jakub" "Nowak"]
+   ["Anna" "Wiśniewska"] ["Michał" "Wójcik"] ["Paweł" "Kowalczyk"]
+   ["Zofia" "Kamińska"] ["Piotr" "Lewandowski"] ["Maria" "Zielińska"]
+   ["Tomasz" "Szymański"] ["Emilia" "Woźniak"] ["Łukasz" "Dąbrowski"]])
+(def businesses ["Zielony Zakątek sp. z o.o." "Piekarnia Pod Lipą" "Pracownia Jasny Dom" "Księgarnia Papierowy Świat"])
+(def organizations ["Fundacja Dobry Gest" "Stowarzyszenie Wspólna Droga" "Koło Przyjaciół Ogrodu" "Fundacja Otwarta Dłoń"])
+;; All combinations are invented for the local demo; no address or identity was sourced from a person.
+(def locations [["ul. Lipowa" "30-001" "Kraków" "małopolskie"]
+                ["ul. Słoneczna" "32-020" "Wieliczka" "małopolskie"]
+                ["ul. Ogrodowa" "32-050" "Skawina" "małopolskie"]])
 
 (defn donor [n]
   (let [[first-name surname] (when (<= n 12) (nth people (dec n)))
@@ -23,13 +27,13 @@
         label (cond first-name (str first-name " " surname)
                     (<= n 16) (nth businesses (- n 13))
                     :else (nth organizations (- n 17)))
-        shared-address? (#{1 3} n)]
+        shared-address? (#{1 3} n)
+        address-number (if shared-address? 1 n)
+        [street postal-code city province] (nth locations (mod address-number 3))]
     {:id (stable-id :donor n) :entity-type entity-type
-     :name (str "DANE SYNTETYCZNE — " label) :first-name first-name
-     :street (str "Próbna " (if shared-address? 1 n))
-     :postal-code (String/format Locale/ROOT "00-%03d" (object-array [(if shared-address? 1 n)]))
-     :city (if shared-address? "Testowo" (nth ["Przykładowo" "Wzorowo" "Testowo"] (mod n 3)))
-     :province "Testowe" :is-active (not (#{10 20} n)) :version 1}))
+     :name label :first-name first-name
+     :street (str street " " address-number "/4") :postal-code postal-code
+     :city city :province province :is-active (not (#{10 20} n)) :version 1}))
 
 (defn payment [n]
   (let [donor-number (inc (mod (dec n) 20))]
