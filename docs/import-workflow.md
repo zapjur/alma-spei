@@ -1,5 +1,10 @@
 # Import, matching and rollback workflow
 
+Current development delivery: [automatic reconciliation](automatic-reconciliation.md)
+supersedes manual review of every transfer. Certain matches and clear new profiles
+are staged automatically under explicit file settings; only exceptions require
+human decisions. The full summary and explicit transactional approval remain.
+
 ## Confirmed interaction contract
 
 1. The hospice's primary existing dataset is the initial source of canonical donors.

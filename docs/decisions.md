@@ -322,3 +322,14 @@ actionable blockers, clearer summary/confirmation/history and plausible fictiona
 Polish seed names/addresses with positive happy-path samples. No schema, API,
 dependency or financial-rule change. Existing seeds are never overwritten;
 execution remains explicitly disabled by default.
+
+## CONFIRMED — automatic reconciliation replaces manual-first import
+
+The user explicitly corrected the workflow and requested a new branch implementing
+automatic preparation with summary and ambiguity-only review. The
+[implementation contract](automatic-reconciliation.md) uses exact full identity,
+explicit file currency/type settings and conservative duplicate candidates. It
+adds staged transactional analysis and identity-resolution APIs with no schema or
+dependency change. Human decisions remain preserved; canonical application still
+requires the immutable preview and explicit approval. Production sender conventions,
+stable bank payment identity, refunds and operational/privacy approvals remain OPEN.

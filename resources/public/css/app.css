@@ -299,3 +299,14 @@ input[type=file]::file-selector-button { padding: .5rem .75rem; border: 1px soli
   .review-work-heading { align-items: start; flex-direction: column; }
   .review-screen .import-steps .step-complete { display: none; }
 }
+.automatic-counts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.automatic-counts > div { padding: 1.25rem; border: 1px solid var(--line); border-radius: .75rem; background: white; }
+.automatic-counts dt { color: var(--muted); font-size: .8rem; }
+.automatic-counts dd { margin: .25rem 0 0; font-size: 2rem; font-weight: 700; }
+.exception-card { display: flex; justify-content: space-between; align-items: start; gap: 1rem; padding: 1.25rem; margin: 1rem 0; background: white; border: 1px solid #e6d3ac; border-radius: .75rem; }
+.exception-card p { font-size: .85rem; color: var(--muted); margin: .4rem 0; }
+.exception-card button { flex-shrink: 0; }
+.file-policy { border: 1px solid var(--line); border-radius: .5rem; margin-top: 1.5rem; padding: 1rem; }
+.file-policy legend { font-weight: 600; }
+@media (max-width: 60rem) { .automatic-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 45rem) { .exception-card { flex-direction: column; } }

@@ -92,3 +92,7 @@
 (rf/reg-fx :imports/upload #(request! (fn [] (js/XMLHttpRequest.)) rf/dispatch % true))
 (rf/reg-fx :imports/page #(request! (fn [] (js/XMLHttpRequest.)) rf/dispatch % false))
 (rf/reg-fx :imports/abort (fn [_] (abort!)))
+
+(rf/reg-fx :imports/reconcile
+           (fn [intent]
+             (rf/dispatch [:review/intent intent])))

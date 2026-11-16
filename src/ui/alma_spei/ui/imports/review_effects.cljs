@@ -54,3 +54,5 @@
 (rf/reg-fx :review/request #(request! js/fetch rf/dispatch %))
 (rf/reg-fx :review/abort (fn [_] (abort!)))
 (rf/reg-fx :review/location location/write!)
+
+(rf/reg-fx :review/start-route (fn [batch-id] (set! (.-hash js/location) (str "#review/" batch-id "/0"))))

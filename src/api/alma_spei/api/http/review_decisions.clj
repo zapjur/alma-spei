@@ -3,6 +3,8 @@
             [alma-spei.api.http.auth :as auth]
             [alma-spei.api.imports.decisions :as service]
             [alma-spei.api.imports.preview :as preview]
+            [alma-spei.api.imports.reconciliation :as reconciliation]
+            [alma-spei.common.contracts.reconciliation :as reconciliation-contract]
             [alma-spei.api.imports.service :as imports]
             [alma-spei.common.contracts.decisions :as contract]
             [ring.middleware.params :refer [wrap-params]]))
@@ -13,7 +15,7 @@
   (into {} (map (fn [[key value]]
                   [(get (if payments? {"limit" :limit "offset" :offset "donor-id" :donor-id} {"limit" :limit "offset" :offset}) key :unknown)
                    (if (contains? #{"limit" "offset"} key) (number-value value) value)]) params)))
-(def mutations #{:proposal-create :proposal-update :decision-save :preview-create})
+(def mutations #{:proposal-create :proposal-update :decision-save :preview-create :reconcile :resolve-identity})
 (defn endpoint [ds settings action]
   (wrap-params
    (fn [request]
@@ -31,6 +33,9 @@
            (when (seq (:query-params request)) (imports/fail! 400 "validation" "Nieprawidłowe parametry weryfikacji.")))
          {:status (if (contains? #{:proposal-create :preview-create} action) 201 200)
           :body (case action
+                  :resolve-identity (reconciliation/resolve-identity! ds token csrf (:id path) input)
+                  :reconcile (reconciliation/reconcile! ds token csrf (:id path) input)
+                  :reconciliation (reconciliation/read! ds token (:id path) input)
                   :preview-create (preview/create! ds token csrf (:id path) input)
                   (:preview :items :blockers) (preview/read! ds token action (:id path) (:preview-id path) input)
                   (:proposal-create :proposal-update :decision-save)
@@ -43,7 +48,9 @@
                (throw e))))))))
 (defn routes [ds settings]
   (let [route (fn [action schema status] {:handler (endpoint ds settings action) :responses {status {:body schema}}})]
-    [["/api/imports/:id/donor-proposals" {:get (route :proposals contract/proposals-response 200) :post (route :proposal-create contract/proposal-response 201)}]
+    [["/api/imports/:id/reconciliation/identity" {:post (route :resolve-identity contract/decision-response 200)}]
+     ["/api/imports/:id/reconciliation" {:get (route :reconciliation reconciliation-contract/response 200) :post (route :reconcile reconciliation-contract/response 200)}]
+     ["/api/imports/:id/donor-proposals" {:get (route :proposals contract/proposals-response 200) :post (route :proposal-create contract/proposal-response 201)}]
      ["/api/imports/:id/donor-proposals/:proposal-id" {:put (route :proposal-update contract/proposal-response 200)}]
      ["/api/imports/:id/rows/:worksheet/:row/decision" {:get (route :decision contract/decision-response 200) :put (route :decision-save contract/decision-response 200)}]
      ["/api/imports/:id/payments" {:get (route :payments contract/payments-response 200)}]

@@ -43,6 +43,13 @@ requirements. These are the files the user identified for this inspection.
 
 ## Next decisions
 
+The [automatic development rule](automatic-reconciliation.md) supports an explicit
+comma-separated sender layout and user-confirmed file currency/new-entity type.
+It does not claim that inspected bank B/C values follow that layout, infer first
+names/entity types, or establish production payment identity. Unsupported formats
+and possible duplicates remain review exceptions. No real workbook values were
+used to build the fictional matching fixtures.
+
 Review the minimum domain proposal in [task 28](task-28-schema-proposal.md).
 Confirm the monthly block/year, historical meanings, tax attribution and bank
 format conventions before their corresponding adapters/reports are implemented.

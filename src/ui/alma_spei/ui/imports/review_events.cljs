@@ -21,8 +21,11 @@
     (assoc (request base :work :rows {:batch-id id :offset offset :limit 25}) :review/location {:batch-id id :offset offset})))
 (defn open [db [_ route]]
   (let [db (assoc db :review initial-state)]
-    (if-let [id (:batch-id route)] (batch-load db id (or (:offset route) 0)) (queue-load db 0))))
-(defn close [db _] {:db (-> db (dissoc :review) (assoc :review-sequence (next-id db))) :review/abort nil :decision/abort nil})
+    (if-let [id (:batch-id route)]
+      (let [intent (:reconciliation-intent db) result (batch-load (dissoc db :reconciliation-intent) id (or (:offset route) 0))]
+        (if (= id (:batch-id intent)) (assoc-in result [:db :review :intent] intent) result))
+      (queue-load (dissoc db :reconciliation-intent) 0))))
+(defn close [db _] {:db (-> db (dissoc :review :reconciliation-intent) (assoc :review-sequence (next-id db))) :review/abort nil :decision/abort nil})
 (defn back [db _]
   (assoc (queue-load (assoc db :review initial-state) 0) :review/location {:offset 0}))
 (defn select-batch [db [_ id]]
@@ -103,7 +106,13 @@
           (and target row) (editing/load-editor (-> next-db (assoc-in [:review :selected] target) (update :review dissoc :find-row)))
           (and target (< (+ (:offset work) (:limit work)) (:total work)))
           (update (batch-load next-db (:batch-id work) (+ (:offset work) (:limit work))) :db assoc-in [:review :find-row] target)
-          :else (editing/load-editor (update next-db :review dissoc :find-row)))) result)))
+          :else (let [base (update next-db :review dissoc :find-row)
+                      result (if (get-in db [:review :resolving]) (editing/load-editor base) {:db base})]
+                  (cond
+                    (get-in db [:review :resolving]) result
+                    (get-in db [:review :intent]) (-> result (update :db update :review dissoc :intent)
+                                                      (assoc :dispatch [:decision/automatic-run (get-in db [:review :intent :csrf]) (get-in db [:review :intent :policy])]))
+                    :else (assoc result :dispatch [:decision/automatic-report 0]))))) result)))
 (defn select-row-fx [db event]
   (let [selected (select-row db event)]
     (if (= selected db) {:db db} (editing/load-editor selected))))
@@ -130,6 +139,7 @@
         next-row (when index (get rows (inc index)))]
     (cond
       (or (editing/dirty? (:review db)) (editing/busy? (:review db))) {:db db}
+      (get-in db [:review :resolving]) {:db (update db :review dissoc :resolving :stage) :dispatch [:decision/automatic-report 0]}
       next-row (select-row-fx db [:review/select-row (:worksheet-index next-row) (:row-number next-row)])
       (< (+ (:offset work) (:limit work)) (:total work)) (page db [:review/page :next])
       :else {:db (assoc-in db [:review :stage] :summary) :dispatch [:decision/preview csrf]})))
@@ -143,6 +153,15 @@
 (defn find-row [db [_ worksheet row]]
   (if (and (get-in db [:review :work :batch-id]) (not (editing/dirty? (:review db))) (not (editing/busy? (:review db))))
     (let [target {:worksheet worksheet :row row}]
-      (update (batch-load db (get-in db [:review :work :batch-id]) 0) :db assoc-in [:review :find-row] target))
+      (update (batch-load db (get-in db [:review :work :batch-id]) 0) :db update :review assoc :find-row target :resolving true
+              :automation (get-in db [:review :automation])
+              :resolution (some #(when (= target {:worksheet (get-in % [:row :worksheet-index]) :row (get-in % [:row :row-number])}) %) (get-in db [:review :automation :data :exceptions]))))
     {:db db}))
 (rf/reg-event-fx :review/find-row (with-db find-row))
+
+(rf/reg-event-fx :review/automatic
+                 (with-db (fn [db _]
+                            {:db (update db :review dissoc :resolving :stage) :dispatch [:decision/automatic-report 0]})))
+
+(rf/reg-event-fx :review/intent
+                 (with-db (fn [db [_ intent]] {:db (assoc db :reconciliation-intent intent) :review/start-route (:batch-id intent)})))

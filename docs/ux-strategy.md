@@ -47,6 +47,12 @@ Blockers link back to a transfer, and history offers direct continuation. The de
 uses fictional Polish names/address combinations with environment-level labelling.
 Donor details and final hospice branding remain outside these import changes.
 
+The user subsequently rejected manual-first import review. The current
+[automatic reconciliation flow](automatic-reconciliation.md) prepares certain rows
+and shows a summary plus exceptions. Currency/new-entity type are source settings
+confirmed once per file, not repeated questions for every payment. Identity-only
+exceptions finish after a human target choice when payment checks are unambiguous.
+
 ## Delivered synthetic import confirmation — Task #40
 
 The [approved screens](task-40-import-summary-proposal.md) provide separate final
