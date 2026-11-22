@@ -58,7 +58,7 @@
     (migratus/migrate cfg)
     (is (db/ready? runtime 1))
     (let [history (jdbc/execute! migrator ["SELECT * FROM schema_migrations"])]
-      (is (= 6 (count history)))
+      (is (= 7 (count history)))
       (migratus/migrate cfg)
       (is (= history (jdbc/execute! migrator ["SELECT * FROM schema_migrations"]))))
     (is (= 1 (:application_metadata/foundation_version
@@ -75,7 +75,7 @@
                    (jdbc/execute! tx ["INSERT INTO transaction_probe VALUES (?)" 2])
                    (throw (ex-info "Synthetic failure" {})))))
     (is (= [1] (map :transaction_probe/id (jdbc/execute! migrator ["SELECT id FROM transaction_probe"]))))
-    (dotimes [_ 6] (rollback-latest! cfg))
+    (dotimes [_ 7] (rollback-latest! cfg))
     (is (false? (db/ready? runtime 1)))
     (migratus/migrate cfg)
     (is (db/ready? runtime 1))))
@@ -103,5 +103,57 @@
           (is (= 503 (status port "/api/health/ready")))
           (migratus/migrate (migrations/migration-config (:migrator *database*)))
           (is (= 200 (status port "/api/health/ready")))
-          (dotimes [_ 6] (rollback-latest! (migrations/migration-config (:migrator *database*))))
+          (dotimes [_ 7] (rollback-latest! (migrations/migration-config (:migrator *database*))))
           (finally (system/stop! running)))))))
+
+(defn staged-source! [runtime actor source hash-digit]
+  (let [file (UUID/randomUUID)
+        batch (UUID/randomUUID)]
+    (jdbc/execute! runtime ["INSERT INTO import_files (id,file_hash_sha256,byte_count) VALUES (?,?,1)"
+                            file (apply str (repeat 64 hash-digit))])
+    (jdbc/execute! runtime ["INSERT INTO import_batches (id,file_id,attempt_number,source_type,original_filename,created_by) VALUES (?,?,1,?,'synthetic.xlsx',?)"
+                            batch file source actor])
+    (jdbc/execute! runtime ["INSERT INTO staged_rows (batch_id,worksheet_index,row_number,normalized_payload,validation_state,rule_version) VALUES (?,1,2,'{}','valid','synthetic-v1')" batch])
+    batch))
+
+(deftest source-evidence-upgrade-preserves-data-and-enforces-provenance
+  (let [{:keys [runtime migrator]} *database*
+        cfg (migrations/migration-config migrator)
+        migration 202611220001
+        actor (UUID/randomUUID)
+        donor (UUID/randomUUID)
+        observation "INSERT INTO source_observations (batch_id,worksheet_index,row_number,column_index,observed_value,source_value_type) VALUES (?,1,2,7,'synthetic marker','text')"
+        tax "INSERT INTO tax_identification_evidence (batch_id,worksheet_index,row_number,subject_role,donor_id) VALUES (?,1,2,?,?)"]
+    (migratus/migrate cfg)
+    (migratus/down cfg migration)
+    (jdbc/execute! runtime ["INSERT INTO users (id,username,display_name) VALUES (?,'synthetic.evidence','Synthetic Evidence Staff')" actor])
+    (jdbc/execute! runtime ["INSERT INTO donors (id,entity_type,name,created_by,updated_by) VALUES (?,'individual','Synthetic Evidence Donor',?,?)"
+                            donor actor actor])
+    (let [master (staged-source! runtime actor "master" \a)
+          tax-batch (staged-source! runtime actor "tax" \b)
+          verify-data #(mapv (fn [query] (jdbc/execute! runtime [query]))
+                             ["SELECT * FROM users" "SELECT * FROM donors" "SELECT * FROM import_batches ORDER BY id"
+                              "SELECT * FROM staged_rows ORDER BY batch_id" "SELECT * FROM donations"])
+          snapshots (verify-data)]
+      (migratus/migrate cfg)
+      (is (= snapshots (verify-data)))
+      (jdbc/execute! runtime [observation master])
+      (jdbc/execute! runtime [tax tax-batch "taxpayer" donor])
+      (jdbc/execute! runtime [tax tax-batch "spouse" nil])
+      (is (= ["synthetic marker"]
+             (map :source_observations/observed_value (jdbc/execute! runtime ["SELECT * FROM source_observations"]))))
+      (is (= [["spouse" nil nil] ["taxpayer" donor nil]]
+             (mapv (juxt :tax_identification_evidence/subject_role :tax_identification_evidence/donor_id :tax_identification_evidence/tax_year)
+                   (jdbc/execute! runtime ["SELECT * FROM tax_identification_evidence ORDER BY subject_role"]))))
+      (is (= snapshots (verify-data)))
+      (doseq [statement [[observation master] [observation tax-batch] [tax master "taxpayer" donor]
+                         [tax tax-batch "spouse" donor] [tax tax-batch "unknown" nil]
+                         ["INSERT INTO source_observations (batch_id,worksheet_index,row_number,column_index,observed_value,source_value_type) VALUES (?,1,3,7,'synthetic marker','text')" master]
+                         ["UPDATE source_observations SET observed_value='changed'"]
+                         ["DELETE FROM source_observations"]
+                         ["UPDATE tax_identification_evidence SET donor_id=NULL"]
+                         ["DELETE FROM tax_identification_evidence"]]]
+        (is (thrown? java.sql.SQLException (jdbc/execute! runtime statement))))
+      (is (thrown? Exception (migratus/down cfg migration)))
+      (is (= 1 (count (jdbc/execute! runtime ["SELECT * FROM source_observations"]))))
+      (is (= 2 (count (jdbc/execute! runtime ["SELECT * FROM tax_identification_evidence"])))))))

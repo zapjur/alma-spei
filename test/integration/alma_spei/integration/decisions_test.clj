@@ -213,7 +213,7 @@
     (is (= before (canonical)))
     (migratus/migrate cfg)
     (is (= 0 (count-of "import_review_events")))
-    (is (= 6 (:n (repository/one (:migrator database/*database*) ["SELECT count(*) AS n FROM schema_migrations"]))))))
+    (is (= 7 (:n (repository/one (:migrator database/*database*) ["SELECT count(*) AS n FROM schema_migrations"]))))))
 
 (deftest authorization-closed-inputs-and-archived-targets
   (let [batch (batch) donor (review-fixture/create-donor "Synthetic Archived" false) input (input batch donor)
