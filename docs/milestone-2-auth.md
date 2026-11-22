@@ -265,3 +265,19 @@ PostgreSQL database verified the following:
   to the login screen.
 
 All account and credential values used in the run were synthetic.
+
+## Task #57 authentication backend acceptance
+
+Authentication shipped in the authentication foundation merged into `main`.
+The [task #57 review record](https://trello.com/c/E2uT4mI4) documents the local
+verification performed under [QA task #72](https://trello.com/c/NE7SbeKC).
+
+| Criterion | Local evidence |
+| --- | --- |
+| Schema and account enrollment | Migration `202610250002-auth` creates the account, credential, session and security audit tables. Account creation uses the administrator-only API. `bb create-admin` creates the first administrator only in an empty user database. |
+| Password and session handling | The local provider uses Argon2id. Session tokens are random and the server stores their digests. Sessions expire after 30 idle minutes or eight hours total. |
+| HTTP protections | Local verification covers HttpOnly and SameSite=Strict session cookies, `Cache-Control: no-store` on authentication and account responses, and CSRF checks on writes. |
+
+Production verification of the Secure cookie flag remains open until the
+approved TLS deployment is available. Loopback HTTP deliberately leaves the
+flag off. See [operations](operations.md) for the deployment gate.
