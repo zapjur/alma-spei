@@ -209,7 +209,7 @@
                      (repository/query (ds) ["INSERT INTO import_preview_items(preview_id,ordinal,kind,payload) VALUES (?,99,'new-payment','{}'::jsonb)"
                                              (UUID/fromString (get-in ready [:body :preview :id]))])
                      nil (catch SQLException e (.getSQLState e)))))
-    (dotimes [_ 2] (database/rollback-latest! cfg))
+    (dotimes [_ 3] (database/rollback-latest! cfg))
     (is (= before (canonical)))
     (migratus/migrate cfg)
     (is (= 0 (count-of "import_review_events")))

@@ -153,3 +153,7 @@ import batch of the corresponding source type.
 
 The migration can be rolled back while both tables are empty. Historical
 observation meanings, month-to-period mapping and tax attribution remain open.
+
+Import compensation checks for linked tax evidence before archiving a donor
+created by an import. Future adapter writes that link evidence to donors must
+use the existing catalogue lock and check that the donor is active.
