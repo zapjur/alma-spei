@@ -59,7 +59,7 @@
         (is (validation/valid? contract/comparison-response body))
         (is (= (:id donor) (get-in body [:donor :id])))
         (is (= "Synthetic Shared 1" (get-in body [:donor :street])))
-        (is (= "Synthetic Sender" (get-in body [:row :payload :sender])))
+        (is (= "Jan Kowalski" (get-in body [:row :payload :sender])))
         (is (nil? (get-in body [:row :payload :currency])))
         (is (= 0 (get-in body [:batch :reviewed-rows])))
         (is (not (contains? body :donations)))

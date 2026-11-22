@@ -6,13 +6,13 @@
 (def main-ns "http://schemas.openxmlformats.org/spreadsheetml/2006/main")
 (def relationships-ns "http://schemas.openxmlformats.org/package/2006/relationships")
 (def office-rel "http://schemas.openxmlformats.org/officeDocument/2006/relationships/")
-(def sample-csv "2026-01-02;Synthetic Sender;Synthetic description;12,3400\n03.01.2026;Synthetic Other;;-2.50\n")
+(def sample-csv "2026-01-02;Jan Kowalski;Darowizna na cele statutowe;12,3400\n03.01.2026;Jakub Nowak;;-2.50\n")
 (def sample-sheet
   (str "<worksheet xmlns='" main-ns "'><sheetData>"
-       "<row r='2'><c r='A2' s='1'><v>46024</v></c><c r='B2' t='inlineStr'><is><t>Synthetic Sender</t></is></c>"
+       "<row r='2'><c r='A2' s='1'><v>46024</v></c><c r='B2' t='inlineStr'><is><t>Jan Kowalski</t></is></c>"
        "<c r='C2' t='s'><v>0</v></c><c r='D2'><v>12.3400</v></c></row>"
        "<row r='3'><c r='A3' t='inlineStr'><is><t>2026-01-03</t></is></c>"
-       "<c r='B3' t='inlineStr'><is><t>Synthetic Other</t></is></c><c r='D3'><v>-2.50</v></c></row>"
+       "<c r='B3' t='inlineStr'><is><t>Jakub Nowak</t></is></c><c r='D3'><v>-2.50</v></c></row>"
        "</sheetData></worksheet>"))
 
 (defn entries
@@ -34,7 +34,7 @@
          "<Relationship Id='rId2' Type='" office-rel "styles' Target='styles.xml'/>"
          "<Relationship Id='rId3' Type='" office-rel "sharedStrings' Target='sharedStrings.xml'/></Relationships>")
     "xl/styles.xml" (str "<styleSheet xmlns='" main-ns "'><cellXfs count='2'><xf numFmtId='0'/><xf numFmtId='14'/></cellXfs></styleSheet>")
-    "xl/sharedStrings.xml" (str "<sst xmlns='" main-ns "' count='1' uniqueCount='1'><si><t>Synthetic description</t></si></sst>")
+    "xl/sharedStrings.xml" (str "<sst xmlns='" main-ns "' count='1' uniqueCount='1'><si><t>Darowizna na cele statutowe</t></si></sst>")
     "xl/worksheets/sheet1.xml" sheet}))
 
 (defn zip-bytes [parts]

@@ -223,6 +223,7 @@
             [nav-item "Konta użytkowników" (= screen :accounts) disabled?
              #(when (navigate! state :accounts) (request! state :accounts "/api/accounts" "GET" nil))])])]
       [:div {:class "sidebar-account"}
+       [:p {:class "field-help"} "Wersja testowa · dane fikcyjne"]
        [:span {:class "account-label"} "Zalogowano jako"] [:strong (:display-name user)]
        [:button {:type "button" :class "button-quiet" :disabled busy
                  :on-click #(do (purge-imports!) (.replaceState js/history nil "" (str (.-pathname js/location) (.-search js/location)))

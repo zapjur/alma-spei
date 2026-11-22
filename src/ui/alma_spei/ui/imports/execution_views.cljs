@@ -58,25 +58,35 @@
            [:button {:type "button" :on-click #(rf/dispatch [:execution/retry-exact csrf])} "Ponów dokładnie to żądanie"]])])]))
 (defn history-panel [state]
   (let [history (:history state) data (:data history) uploaders (into {} (map (juxt :id :display-name) (:uploaders data)))]
-    [:section [:h2 {:tab-index -1 :ref uploads/focus-heading} "Historia importów"]
-     [:p "Data przesłania nie oznacza daty zatwierdzenia. Możliwość cofnięcia jest sprawdzana dla konkretnego zatwierdzonego importu."]
+    [:section [:header {:class "page-heading"}
+               [:p {:class "eyebrow"} "IMPORTY"]
+               [:h2 {:tab-index -1 :ref uploads/focus-heading} "Historia importów"]
+               [:p "Sprawdź, na jakim etapie jest plik. Niedokończony import możesz otworzyć i kontynuować."]]
      [:button {:type "button" :disabled (= :loading (:status history)) :on-click #(rf/dispatch [:execution/refresh :history (get-in state [:route :offset])])} "Odśwież historię"]
      [error-panel history #(rf/dispatch [:execution/refresh :history (get-in state [:route :offset])])] [loading history]
      (when (and data (empty? (:batches data))) [:p "Brak importów w historii."])
      (for [batch (:batches data)]
-       ^{:key (:id batch)} [:article {:class "execution-history-entry"}
-                            [:h3 (:original-filename batch)]
-                            [batch-context batch (get uploaders (:created-by batch))]
-                            [link {:mode :batch :batch-id (:id batch) :offset 0} "Otwórz wynik importu"]])
+       ^{:key (:id batch)}
+       [:article {:class "execution-history-entry"}
+        [:div {:class "history-entry-heading"} [:h3 (:original-filename batch)] [:span {:class "state-badge"} (get uploads/states (:state batch))]]
+        [:p (str (date-text (:created-at batch)) " · " (get uploaders (:created-by batch)))]
+        (if (= "review" (:state batch))
+          [:a {:class "button-primary" :href (str "#review/" (:id batch) "/0")} "Kontynuuj sprawdzanie przelewów"]
+          [link {:mode :batch :batch-id (:id batch) :offset 0} "Zobacz wynik importu"])
+        [:details {:class "review-secondary"} [:summary "Szczegóły pliku i przebiegu"] [batch-context batch (get uploaders (:created-by batch))]]])
      [page-controls state :history :history]]))
 (defn confirmation-panel [state csrf]
   (let [preview (:preview state) data (:data preview) metadata (:preview data) outcome (get-in state [:outcome :data])
         enabled? (get-in state [:capabilities :data :commit-enabled]) backup (get-in state [:backup :data :backup]) disabled? (or (events/busy? state) (events/unresolved? state))]
-    [:section [:h2 {:tab-index -1 :ref uploads/focus-heading} "Zatwierdzenie importu"]
+    [:section [:header {:class "page-heading"}
+               [:p {:class "eyebrow"} "OSTATNI KROK"]
+               [:h2 {:tab-index -1 :ref uploads/focus-heading} "Zatwierdź sprawdzone przelewy"]
+               [:p "Sprawdź podsumowanie. Dopiero przycisk zatwierdzenia zapisze darczyńców i wpłaty w bazie."]]
+     [uploads/import-steps 4]
      [error-panel (:outcome state) #(rf/dispatch [:execution/check])] [loading (:outcome state)]
      [error-panel preview #(rf/dispatch [:execution/refresh :preview 0])] [loading preview]
      [error-panel (:capabilities state) #(rf/dispatch [:execution/refresh :capabilities 0])]
-     (when outcome [batch-context (:batch outcome) (:uploaded-by-name outcome)])
+     (when outcome [:details {:class "review-secondary"} [:summary "Szczegóły importowanego pliku"] [batch-context (:batch outcome) (:uploaded-by-name outcome)]])
      (when metadata
        [:<>
         [summary (:summary metadata)]
@@ -90,10 +100,19 @@
         (for [item (get-in state [:preview-items :data :items])] ^{:key (:ordinal item)} [decisions/preview-item item])
         [page-controls state :preview-items :confirm]
         (cond
-          (false? enabled?) [:p {:role "status"} "Zatwierdzanie importów jest wyłączone. Brak zatwierdzonej usługi kopii zapasowej."]
+          (false? enabled?) [:div {:role "status" :class "notice notice-error"}
+                             [:h3 "Zapis do bazy jest wyłączony w tej instalacji"]
+                             [:p "Możesz sprawdzać przelewy i przygotować podsumowanie, ale nie możesz ich teraz zatwierdzić. Brak zatwierdzonej usługi kopii zapasowej."]
+                             [:p "W środowisku testowym konfigurację trybu syntetycznego ustawia osoba uruchamiająca aplikację. Ponowne klikanie nie odblokuje zapisu."]]
           (true? enabled?) [:p {:class "import-development-note"} "Tryb testowy — nie powstaje rzeczywista kopia zapasowa. Używaj wyłącznie danych syntetycznych."]
           :else [:p {:role "status"} "Sprawdzanie dostępności zatwierdzania…"])
-        [:button {:type "button" :disabled (not (events/can-backup? state)) :on-click #(rf/dispatch [:execution/backup csrf])} "Poproś o testowe potwierdzenie kopii"]
+        (when (true? enabled?)
+          [:div {:class "confirmation-instructions"}
+           [:h3 "Co zrobić teraz?"]
+           [:ol [:li "Sprawdź wszystkie planowane zmiany powyżej."]
+            [:li "Kliknij „Przygotuj zatwierdzenie testowe”. To nie tworzy rzeczywistej kopii zapasowej."]
+            [:li "Zaznacz potwierdzenie i kliknij „Zatwierdź import testowy”."]]])
+        [:button {:type "button" :class (when-not (events/valid-backup? state) "button-primary") :disabled (not (events/can-backup? state)) :on-click #(rf/dispatch [:execution/backup csrf])} "Przygotuj zatwierdzenie testowe"]
         (when backup
           [:div {:role "status"}
            [:p (str "Potwierdzenie testowe: " (date-text (:completed-at backup)) ". Ważne do: " (date-text (:expires-at backup)) ".")]
@@ -103,7 +122,7 @@
                   :disabled (or disabled? (not (events/can-backup? state)) (not (events/valid-backup? state)))
                   :on-change #(rf/dispatch [:execution/consent (.. % -target -checked)])}]
          " Zatwierdzam cały wyświetlony podgląd. Potwierdzam użycie wyłącznie danych syntetycznych i rozumiem, że nie powstała rzeczywista kopia zapasowa."]
-        [:button {:type "button" :disabled (not (events/can-commit? state)) :on-click #(rf/dispatch [:execution/commit csrf])} "Zatwierdź import testowy"]])
+        [:button {:type "button" :class "button-primary" :disabled (not (events/can-commit? state)) :on-click #(rf/dispatch [:execution/commit csrf])} "Zatwierdź import testowy"]])
      [action-status state csrf]]))
 (defn undo-dialog [state csrf]
   (r/with-let [element (volatile! nil) return-focus (or (.getElementById js/document "execution-open-undo") (.-activeElement js/document))]
@@ -135,9 +154,12 @@
      [error-panel outcome #(rf/dispatch [:execution/check])] [loading outcome]
      (when data
        [:<>
-        [batch-context batch (:uploaded-by-name data)]
+        [:div {:class "outcome-banner"}
+         [:h3 (cond undo "Import cofnięty" commit "Przelewy zostały zapisane" (= "review" (:state batch)) "Ten import czeka na sprawdzenie" :else (get uploads/states (:state batch)))]
+         [:p (:original-filename batch)]]
+        [:details {:class "review-secondary"} [:summary "Szczegóły pliku i przebiegu"] [batch-context batch (:uploaded-by-name data)]]
         [:button {:type "button" :disabled (events/busy? state) :on-click #(rf/dispatch [:execution/check])} "Odśwież wynik"]
-        (when (= "review" (:state batch)) [:a {:href (str "#review/" (:id batch) "/0") :class "review-open"} "Przejdź do weryfikacji"])
+        (when (= "review" (:state batch)) [:a {:href (str "#review/" (:id batch) "/0") :class "button-primary"} "Kontynuuj sprawdzanie przelewów"])
         (when commit
           [:section [:h3 "Zapisane zatwierdzenie"]
            [:p (str "Zatwierdził(a): " (:actor-name commit) " · " (date-text (:occurred-at commit)))]

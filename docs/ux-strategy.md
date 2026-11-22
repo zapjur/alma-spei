@@ -40,6 +40,13 @@ expandable menu on narrow screens. This updates the initial navigation/visual
 direction; hospice branding and staff usability acceptance remain open. Other
 screens retain their established information layout pending later redesign work.
 
+The separately approved [guided review slice](guided-import-review.md) continues
+the indicator through transfer review, summary and confirmation. Donor choice comes
+before payment checks; confirmed save-and-next advances through server pages.
+Blockers link back to a transfer, and history offers direct continuation. The demo
+uses fictional Polish names/address combinations with environment-level labelling.
+Donor details and final hospice branding remain outside these import changes.
+
 ## Delivered synthetic import confirmation — Task #40
 
 The [approved screens](task-40-import-summary-proposal.md) provide separate final

@@ -34,14 +34,14 @@
    [:strong (get-in proposal [:profile :name])]
    [:p (str (get labels/entity-types (get-in proposal [:profile :entity-type])) ", " (get-in proposal [:profile :city]))]
    [:button {:type "button" :disabled (not (events/editable? (:editor state)))
-             :on-click #(rf/dispatch [:decision/target "new-proposal" (:id proposal) (:version proposal)])} "Użyj tej propozycji"]
+             :on-click #(rf/dispatch [:decision/target "new-proposal" (:id proposal) (:version proposal)])} "Wybierz tego darczyńcę"]
    [:button {:type "button" :disabled (not (events/editable? (:editor state)))
-             :on-click #(when (allow-leave!) (rf/dispatch [:decision/proposal-form proposal]))} "Edytuj propozycję"]])
+             :on-click #(when (allow-leave!) (rf/dispatch [:decision/proposal-form proposal]))} "Popraw dane darczyńcy"]])
 (defn proposal-form [state csrf]
   (when-let [form (get-in state [:editor :proposal-form])]
-    [:form {:class "decision-proposal-form" :on-submit (fn [e] (.preventDefault e) (rf/dispatch [:decision/proposal-save csrf]))}
-     [:h5 (if (:id form) "Edytuj propozycję profilu" "Nowy proponowany profil")]
-     [:p "Wpisz dane samodzielnie. Propozycja nie tworzy jeszcze darczyńcy w bazie."]
+    [:form {:class "decision-proposal-form" :on-submit (fn [e] (.preventDefault e) (rf/dispatch [:decision/proposal-save csrf true]))}
+     [:h5 (if (:id form) "Edytuj propozycję profilu" "Dane nowego darczyńcy")]
+     [:p "Przepisz potwierdzone dane nadawcy. Profil powstanie dopiero po zatwierdzeniu całego importu."]
      [:label {:for "proposal-type"} "Typ darczyńcy"
       [:select {:id "proposal-type" :value (get-in form [:profile :entity-type]) :disabled (not (events/editable? (:editor state)))
                 :on-change #(rf/dispatch [:decision/proposal-field :entity-type (.. % -target -value)])}
@@ -60,19 +60,21 @@
          " Sprawdzono istniejące profile w bazie."]
         [:label [:input {:type "checkbox" :checked (:checked-proposals form)
                          :on-change #(rf/dispatch [:decision/proposal-check :checked-proposals (.. % -target -checked)])}]
-         " Sprawdzono propozycje w tym imporcie; nie tworzę niepotrzebnego drugiego profilu."]])
-     [:button {:type "submit" :disabled (not (events/proposal-saveable? state))} "Zapisz propozycję profilu"]]))
+         " Sprawdzono nowych darczyńców przygotowanych w tym imporcie; ta osoba lub organizacja nie została dodana drugi raz."]])
+     [:button {:type "submit" :disabled (not (events/proposal-saveable? state))} "Zapisz i wybierz darczyńcę"]]))
 (defn financial-form [state]
   (let [editor (:editor state) draft (:draft editor) financial (:financial draft) disabled? (not (events/editable? editor))
         payments (get-in state [:aux :payments])]
     [:fieldset {:disabled disabled?}
-     [:legend "Weryfikacja wpłaty"]
-     [:p "Data i kwota pozostają zgodne z plikiem. Dla kwot ujemnych trzeba najpierw ustalić zasady zwrotów."]
-     [:label {:for "decision-currency"} "Waluta (trzy wielkie litery, bez wartości domyślnej)"
-      [:input {:id "decision-currency" :value (:currency financial) :max-length 3 :auto-complete "off"
+     [:legend "2. Sprawdź wpłatę"]
+     [:p {:class "field-help"} "Sprawdź walutę w źródle, np. na wyciągu. Wpisz PLN, EUR lub inny potwierdzony kod. Następnie ustal, czy wpłatę trzeba dodać, czy już jest w bazie."]
+     [:p "Data i kwota pozostają zgodne z plikiem."]
+     [:label {:for "decision-currency"} "W jakiej walucie wpłynęły pieniądze?"
+      [:input {:id "decision-currency" :value (:currency financial) :max-length 3 :auto-complete "off" :placeholder "np. PLN"
                :on-change #(rf/dispatch [:decision/field [:financial :currency] (.. % -target -value)])}]]
-     [:label {:for "decision-evidence"} "Źródło potwierdzenia waluty i rozstrzygnięcie nakładania się danych"
+     [:label {:for "decision-evidence"} "Na jakiej podstawie potwierdzasz walutę i brak podwójnego ujęcia?"
       [:textarea {:id "decision-evidence" :value (:evidence financial) :max-length 500
+                  :placeholder "Np. wyciąg z rachunku PLN; sprawdzono wcześniejsze importy i wpłaty darczyńcy."
                   :on-change #(rf/dispatch [:decision/field [:financial :evidence] (.. % -target -value)])}]]
      [:label {:for "decision-disposition"} "Jak ująć wpłatę?"
       [:select {:id "decision-disposition" :value (:disposition financial)
@@ -93,7 +95,7 @@
      (when (:donation-id draft) [:p (str "Wskazana istniejąca wpłata: " (:donation-id draft))])
      [:label [:input {:type "checkbox" :checked (:overlap-checked financial)
                       :on-change #(rf/dispatch [:decision/field [:financial :overlap-checked] (.. % -target -checked)])}]
-      " Potwierdzam sprawdzenie nakładania się źródeł oraz odróżnienie duplikatu od rzeczywiście odrębnej, identycznej wpłaty."]]))
+      " Sprawdzono, czy ta wpłata nie została już uwzględniona z tego lub innego źródła. Identyczna data i kwota nie wystarczają do uznania jej za duplikat."]]))
 (defn target-label [state]
   (let [editor (:editor state) draft (:draft editor) current (:current editor)
         donor (get-in state [:comparison :donor])
@@ -101,40 +103,50 @@
     (or (when (= (select-keys draft [:kind :donor-id :proposal-id :target-version]) (select-keys current [:kind :donor-id :proposal-id :target-version])) (:target-label current))
         (when (= (:donor-id draft) (:id donor)) (:name donor)) (get-in proposal [:profile :name])
         (:donor-id draft) (:proposal-id draft) "—")))
+(defn missing-checks [state]
+  (let [draft (get-in state [:editor :draft]) financial (:financial draft)
+        row (get-in state [:editor :row])]
+    (cond-> []
+      (= "invalid" (:validation-state row)) (conj "Popraw błędy w pliku i prześlij poprawiony plik jako nowy import.")
+      (str/starts-with? (or (get-in row [:payload :amount]) "") "-") (conj "Kwota jest ujemna. Ten przelew nie może zostać zatwierdzony; zasady zwrotów wymagają ustalenia.")
+      (= "unresolved" (:kind draft)) (conj "Wybierz darczyńcę lub przygotuj dane nowego darczyńcy.")
+      (not (re-matches #"[A-Z]{3}" (or (:currency financial) ""))) (conj "Podaj potwierdzoną walutę, np. PLN.")
+      (str/blank? (:evidence financial)) (conj "Opisz, jak sprawdzono walutę i wcześniejsze ujęcie wpłaty.")
+      (= "unresolved" (:disposition financial)) (conj "Wybierz, czy dodać wpłatę, czy wskazać już zapisaną.")
+      (and (= "existing" (:disposition financial)) (nil? (:donation-id draft))) (conj "Wskaż konkretną wpłatę z bazy.")
+      (not (:overlap-checked financial)) (conj "Potwierdź sprawdzenie, czy wpłata nie została już uwzględniona."))))
 (defn editor-panel [state csrf]
-  (let [editor (:editor state) current (:current editor) donor (get-in state [:comparison :donor]) proposals (get-in state [:aux :proposals])]
+  (let [editor (:editor state) current (:current editor) draft (:draft editor)
+        chosen? (and draft (not= "unresolved" (:kind draft)) (not (:choosing state)))
+        missing (missing-checks state)]
     [:section {:class "decision-editor" :aria-labelledby "decision-heading" :aria-busy (contains? #{:saving :loading} (:status editor))}
-     [:h4 {:id "decision-heading"} "Decyzja dla bieżącego wiersza"]
+     [:h4 {:id "decision-heading"} "Sprawdzenie przelewu"]
      [error-text editor]
      (when (contains? #{:saving :loading} (:status editor)) [:p {:role "status"} "Wczytywanie lub zapisywanie decyzji…"])
-     [:button {:type "button" :disabled (= :saving (:status editor))
-               :on-click #(when (allow-leave!) (rf/dispatch [:decision/reload]))} "Wczytaj aktualną decyzję"]
+     (when (:requires-reload editor)
+       [:div {:class "notice notice-error"}
+        [:p "Zapis wymaga sprawdzenia aktualnych danych. Szkic pozostaje na ekranie; odświeżenie zastąpi go aktualną zapisaną decyzją."]
+        [:button {:type "button" :on-click #(when (allow-leave!) (rf/dispatch [:decision/reload]))} "Wczytaj aktualną decyzję"]])
      (when current
-       [:p {:class "decision-saved"}
+       [:p {:class "decision-saved" :role "status"}
         (str "Zapisano: " (or (:reviewer-name current) (:reviewer-id current)) " · " (.toLocaleString (js/Date. (:reviewed-at current)) "pl-PL")
-             " · " (if (:complete current) "decyzja kompletna; gotowość sprawdzana w podglądzie" "decyzja niekompletna"))])
-     (when (:draft editor)
+             " · " (if (:complete current) "przelew sprawdzony" "sprawdzenie nieukończone"))])
+     (when chosen?
        [:<>
-        [:p (str "Cel decyzji: " (get {"unresolved" "Nierozstrzygnięty" "existing-donor" "Profil w bazie" "new-proposal" "Proponowany nowy profil"} (get-in editor [:draft :kind]))
-                 " · " (target-label state))]
-        (when donor
-          [:button {:type "button" :disabled (or (not (events/editable? editor)) (not (:is-active donor)))
-                    :on-click #(rf/dispatch [:decision/target "existing-donor" (:id donor) (:version donor)])} "Wybierz porównany profil do decyzji"])
-        (when (and donor (not (:is-active donor))) [:p "Profil archiwalny służy do porównania. Nie można przypisać mu nowej wpłaty w tym kroku."])
-        [:button {:type "button" :disabled (not (events/editable? editor)) :on-click #(rf/dispatch [:decision/aux :proposals 0])} "Pokaż propozycje tego importu"]
-        [:button {:type "button" :disabled (not (events/editable? editor))
-                  :on-click #(when (allow-leave!) (rf/dispatch [:decision/proposal-form nil]))} "Przygotuj nowy profil"]
-        [error-text proposals]
-        (when (= :loading (:status proposals)) [:p {:role "status"} "Pobieranie propozycji…"])
-        (for [proposal (get-in proposals [:data :proposals])] ^{:key (:id proposal)} [proposal-choice state proposal])
-        [aux-pager :proposals proposals]
-        (when-let [proposal (:saved-proposal editor)]
-          [:div {:role "status"} [:p "Propozycję zapisano. Wybierz ją jawnie, aby użyć aktualnej wersji w decyzji."] [proposal-choice state proposal]])
-        [proposal-form state csrf]
         [financial-form state]
-        [:button {:type "button" :disabled (not (events/saveable? state)) :on-click #(rf/dispatch [:decision/save csrf false])} "Zapisz decyzję dla wiersza"]
+        (when (seq missing)
+          [:div {:class "review-checklist" :role "status"}
+           [:strong "Aby przejść dalej:"] [:ul (for [message missing] ^{:key message} [:li message])]])
+        [:button {:type "button" :class "button-primary" :disabled (not (events/complete-saveable? state))
+                  :on-click #(rf/dispatch [:decision/save-next csrf])} "Zapisz i przejdź dalej"]
+        [:p {:class "field-help"} "Po ostatnim przelewie przejdziesz do podsumowania. Ten zapis nie dodaje jeszcze wpłat do bazy."]])
+     (when draft
+       [:details {:class "review-secondary"}
+        [:summary "Zapis roboczy i dodatkowe opcje"]
+        [:p "Możesz zapisać nieukończone sprawdzenie i wrócić do niego później. Nie przejdziesz automatycznie do kolejnego przelewu."]
+        [:button {:type "button" :disabled (not (events/saveable? state)) :on-click #(rf/dispatch [:decision/save csrf false])} "Zapisz roboczo"]
         [:button {:type "button" :disabled (not (events/editable? editor))
-                  :on-click #(when (js/confirm "Wyczyścić zapisaną decyzję? Historia pozostanie zachowana.") (rf/dispatch [:decision/save csrf true]))} "Pozostaw nierozstrzygnięty"]])]))
+                  :on-click #(when (js/confirm "Wyczyścić zapisaną decyzję? Historia pozostanie zachowana.") (rf/dispatch [:decision/save csrf true]))} "Wyczyść przypisanie"]])]))
 (def kind-labels {"new-donor" "Nowy proponowany darczyńca" "existing-donor-reference" "Istniejący profil — bez zmian pól"
                   "new-payment" "Nowa wpłata" "duplicate-reference" "Wpłata już ujęta — bez ponownego dodania"})
 (defn preview-item [item]
@@ -169,10 +181,10 @@
   (let [preview (:preview state) metadata (get-in preview [:data :preview])
         items (get-in state [:aux :items]) blockers (get-in state [:aux :blockers])]
     [:section {:class "decision-preview" :aria-labelledby "decision-preview-heading"}
-     [:h4 {:id "decision-preview-heading"} "Sprawdź kompletność i przygotuj podgląd"]
+     [:h4 {:id "decision-preview-heading"} "Podsumowanie importu"]
      [:p "Podgląd zapisuje plan, bez zastosowania zmian. Wszystkie wiersze wymagają pełnej i aktualnej decyzji; błędy i kwoty ujemne blokują gotowość."]
      [:button {:type "button" :disabled (or (events/dirty? state) (events/busy? state) (= :loading (:status preview)))
-               :on-click #(rf/dispatch [:decision/preview csrf])} "Przygotuj podgląd importu"]
+               :on-click #(rf/dispatch [:decision/preview csrf])} "Odśwież podsumowanie"]
      [:button {:type "button" :on-click #(rf/dispatch [:decision/aux :blockers 0])} "Sprawdź braki w decyzjach"]
      [error-text preview] [error-text blockers]
      (when (= :loading (:status preview)) [:p {:role "status"} "Przygotowywanie podglądu…"])
@@ -180,14 +192,16 @@
        [:div {:role "status"} [:p (str "Wiersze wymagające uzupełnienia: " (:total data))]
         [:ul (for [blocker (:blockers data)]
                ^{:key (str (:worksheet-index blocker) ":" (:row-number blocker))}
-               [:li (str "Arkusz " (:worksheet-index blocker) ", wiersz " (:row-number blocker) ": " (get contract/blocker-messages (:code blocker) "Wymagana ponowna weryfikacja."))])]
+               [:li
+                [:p (str "Wiersz " (:row-number blocker) ": " (get contract/blocker-messages (:code blocker) "Wymagana ponowna weryfikacja."))]
+                [:button {:type "button" :on-click #(rf/dispatch [:review/find-row (:worksheet-index blocker) (:row-number blocker)])} "Przejdź do tego przelewu"]])]
         [aux-pager :blockers blockers]])
      (when metadata
        [:div
         (when (get-in preview [:data :stale]) [:p {:role "alert"} "Ten podgląd jest nieaktualny. Zweryfikuj zmiany i przygotuj nowy podgląd."])
         (when (and (= "review-preview-v2" (:rule-version metadata)) (not (get-in preview [:data :stale]))
                    (not (events/dirty? state)) (not (events/busy? state)))
-          [:a {:href (execution-location/fragment {:mode :confirm :batch-id (:batch-id metadata) :preview-id (:id metadata) :offset 0}) :class "review-open"} "Przejdź do zatwierdzenia"])
+          [:a {:href (execution-location/fragment {:mode :confirm :batch-id (:batch-id metadata) :preview-id (:id metadata) :offset 0}) :class "button-primary"} "Przejdź do zatwierdzenia"])
         [:p (str "Nowe profile: " (get-in metadata [:summary :new-donors]) ", nowe wpłaty: " (get-in metadata [:summary :new-payments])
                  ", już ujęte wpłaty: " (get-in metadata [:summary :duplicate-references]) ".")]
         (for [total (get-in metadata [:summary :totals])] ^{:key (:currency total)} [:p (str "Nowe wpłaty: " (str/replace (:amount total) "." ",") " " (:currency total))])
@@ -201,5 +215,9 @@
                                  (when (or (events/dirty? current) (events/busy? current))
                                    (.preventDefault event) (set! (.-returnValue event) ""))))
                _ (.addEventListener js/window "beforeunload" before-unload)]
-    [:div [editor-panel state csrf] [preview-panel state csrf] [history-panel state]]
+    [:div
+     (if (= :summary (:stage state))
+       [:<> [:button {:type "button" :on-click #(rf/dispatch [:review/resume])} "Wróć do sprawdzania przelewów"] [preview-panel state csrf]]
+       [editor-panel state csrf])
+     [:details {:class "review-secondary"} [:summary "Historia sprawdzania"] [history-panel state]]]
     (finally (.removeEventListener js/window "beforeunload" before-unload))))

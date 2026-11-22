@@ -41,9 +41,16 @@ credentials or process-command dumps.
 expected-outcome manifest:
 
 - 20 profiles: 12 individuals, 4 businesses, 4 organizations; 18 active and 2 archived.
-- All display names explicitly start with **DANE SYNTETYCZNE**. Names, cities,
-  addresses and organization labels are invented; no workbook rows were sampled,
-  transformed or copied. Unicode Polish characters exercise the actual storage/UI.
+- The approved guided-review update uses plausible fictional Polish names such as
+  Jan Kowalski and Jakub Nowak, with invented address combinations and organization
+  labels. The dataset is labelled synthetic in documentation and the development
+  workflow rather than inside every profile name. Place names are ordinary Polish
+  localities; no person's identity/address or workbook row was sourced or verified.
+  Familiar combinations may coincide with real names and must never be used as real
+  identity evidence or mailing recipients. Unicode exercises actual storage/UI.
+  Existing seed records retain their stable IDs and are never silently overwritten;
+  older seed contents cause the existing conflict guard, requiring a fresh disposable
+  database for this revised dataset.
 - Two distinct profiles share a full name but have different addresses; two others
   share an address without becoming a household, merged donor or financial identity.
 - 30 positive payment facts, explicitly dated in 2026 with currency PLN, total

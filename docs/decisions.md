@@ -313,3 +313,12 @@ The user explicitly approved the [UI redesign outline](ui-redesign.md): shell an
 sidebar, task-focused home, clearer upload/analysis, and shared visual foundations.
 No dependency, schema, API or domain-rule change is approved or needed. Later
 review/detail/confirmation layout redesign remains outside this first slice.
+
+## CONFIRMED — guided import review and realistic fictional data
+
+The user approved the [second UI slice](guided-import-review.md) and requested a
+separate branch: donor choice before payment checks, confirmed save-and-next,
+actionable blockers, clearer summary/confirmation/history and plausible fictional
+Polish seed names/addresses with positive happy-path samples. No schema, API,
+dependency or financial-rule change. Existing seeds are never overwritten;
+execution remains explicitly disabled by default.
