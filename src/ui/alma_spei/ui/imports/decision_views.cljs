@@ -99,9 +99,10 @@
 (defn target-label [state]
   (let [editor (:editor state) draft (:draft editor) current (:current editor)
         donor (get-in state [:comparison :donor])
+        candidate (some #(when (= (:donor-id draft) (:id %)) %) (get-in state [:resolution :candidates]))
         proposal (some #(when (= (:proposal-id draft) (:id %)) %) (conj (get-in state [:aux :proposals :data :proposals] []) (:saved-proposal editor)))]
     (or (when (= (select-keys draft [:kind :donor-id :proposal-id :target-version]) (select-keys current [:kind :donor-id :proposal-id :target-version])) (:target-label current))
-        (when (= (:donor-id draft) (:id donor)) (:name donor)) (get-in proposal [:profile :name])
+        (when (= (:donor-id draft) (:id donor)) (:name donor)) (:name candidate) (get-in proposal [:profile :name])
         (:donor-id draft) (:proposal-id draft) "—")))
 (defn missing-checks [state]
   (let [draft (get-in state [:editor :draft]) financial (:financial draft)

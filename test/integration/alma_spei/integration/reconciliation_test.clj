@@ -182,3 +182,22 @@
     (is (= "donor-type" (:reason exception)))
     (is (empty? (:candidates exception)))
     (is (true? (:new-profile-candidate exception)))))
+
+(deftest exact-queue-pages-only-current-automatic-donor-links
+  (seed!)
+  (let [batch (sample!)
+        analysis (:body (analyse batch policy))
+        read-queue (fn [query] (calls/call :get (str (url batch) query) nil))
+        page (:body (read-queue "?queue=exact&limit=1"))
+        second-page (:body (read-queue "?queue=exact&limit=1&offset=1"))]
+    (is (= "exceptions" (:queue analysis)))
+    (is (= 2 (:exact-match-count analysis)))
+    (is (validation/valid? contract/response page))
+    (is (= ["Jan Kowalski" "Jakub Nowak"]
+           (mapv #(get-in % [:exact-matches 0 :donor :name]) [page second-page])))
+    (is (empty? (:exceptions page)))
+    (is (= 400 (:status (read-queue "?queue=unknown"))))
+    (donor! "Maria Lis" "ul. Polna 5")
+    (let [stale (:body (read-queue "?queue=exact"))]
+      (is (zero? (:exact-match-count stale)))
+      (is (empty? (:exact-matches stale))))))

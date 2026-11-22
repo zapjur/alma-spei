@@ -12,7 +12,6 @@
             [alma-spei.common.imports.reconciliation :as matching]
             [alma-spei.common.contracts.reconciliation :as contract]
             [alma-spei.common.contracts.decisions :as decision-contract]
-            [alma-spei.common.contracts.imports :as import-contract]
             [alma-spei.common.contracts.donors :as donor-contract]
             [alma-spei.common.validation :as validation]
             [next.jdbc :as jdbc])
@@ -23,7 +22,8 @@
           :policy imports/decode-json))
 (defn donor-index [tx]
   (let [all (batches/query tx ["SELECT * FROM donors ORDER BY id"])]
-    {:suggestions (suggestions/suggestion-index all)
+    {:by-id (into {} (map (juxt :id identity) all))
+     :suggestions (suggestions/suggestion-index all)
      :names (group-by #(matching/normalized (:name %)) all)
      :addresses (group-by #(subvec (matching/identity-key %) 1) all)}))
 (defn related [index profile]
@@ -58,7 +58,11 @@
       (and (:donor plan) (seq (get (:payments ctx) (payment-key (get-in plan [:donor :id]) payload (:currency selected-policy)))))
       {:reason "payment-ambiguity" :candidates [(:donor plan)]}
       :else plan)))
-(defn report [tx batch limit offset]
+(defn automatic-locators [tx id]
+  (set (map #(vector (:worksheet-index %) (:row-number %))
+            (batches/query tx ["SELECT d.worksheet_index,d.row_number FROM import_review_decisions d JOIN import_review_events e ON e.batch_id=d.batch_id AND e.worksheet_index=d.worksheet_index AND e.row_number=d.row_number AND e.after_version=d.version WHERE d.batch_id=? AND e.event_type='decision-saved' AND e.after_value->'automation'->>'rule-version' IN (?,?) AND coalesce(e.after_value->'automation'->>'identity-confirmed','false')='false'" id "bank-exact-identity-v1" matching/rule-version]))))
+
+(defn report [tx batch limit offset queue]
   (let [selected-policy (policy tx (:id batch))
         ctx (context tx (:id batch) selected-policy)
         saved (into {} (map (juxt #(vector (:worksheet-index %) (:row-number %)) identity) (repository/all-decisions tx (:id batch))))
@@ -76,7 +80,15 @@
                         :candidates (mapv (fn [{:keys [donor reason]}]
                                             (assoc (donors/public-donor donor) :match-reason reason))
                                           candidates)})) (:rows ctx) (:parsed ctx) (:keys ctx))
-        resolved (filter :resolved rows) exceptions (remove :resolved rows)
+        resolved (filter :resolved rows)
+        exceptions (remove :resolved rows)
+        automatic (automatic-locators tx (:id batch))
+        exact-matches (filter (fn [{:keys [row decision]}]
+                                (and (= "existing-donor" (:kind decision))
+                                     (contains? automatic [(:worksheet-index row) (:row-number row)])))
+                              resolved)
+        exact? (= queue "exact")
+        page (take limit (drop offset (if exact? exact-matches exceptions)))
         totals (reduce (fn [totals item]
                          (let [financial (imports/decode-json (get-in item [:decision :financial]))]
                            (if (= "new" (:disposition financial))
@@ -87,14 +99,19 @@
                 :duplicates (count (keep #(get-in % [:decision :donation-id]) resolved)) :exceptions (count exceptions)}]
     {:batch (imports/public-batch batch) :catalog-version revision :policy selected-policy :counts counts
      :totals (mapv (fn [[currency amount]] {:currency currency :amount (.toPlainString ^java.math.BigDecimal amount)}) (sort-by key totals))
-     :exceptions (mapv #(select-keys % [:row :reason :candidates :new-profile-candidate])
-                       (take limit (drop offset exceptions)))
+     :queue queue :exact-match-count (count exact-matches)
+     :exact-matches (if exact?
+                      (mapv (fn [{:keys [row decision]}]
+                              {:row row :donor (donors/public-donor (get-in ctx [:index :by-id (:donor-id decision)]))})
+                            page)
+                      [])
+     :exceptions (if exact? [] (mapv #(select-keys % [:row :reason :candidates :new-profile-candidate]) page))
      :limit limit :offset offset :ready (boolean (and (seq rows) (empty? exceptions) (= "review" (:state batch))))}))
 (defn read! [ds token id input]
   (auth/authorize! ds token false false)
-  (imports/validate! import-contract/page-query input)
+  (imports/validate! contract/page-query input)
   (jdbc/with-transaction [tx ds {:isolation :repeatable-read}]
-    (report tx (review/batch! tx id) (get input :limit 25) (get input :offset 0))))
+    (report tx (review/batch! tx id) (get input :limit 25) (get input :offset 0) (get input :queue "exceptions"))))
 (defn proposal-for! [tx batch actor profile proposals selected-policy]
   (let [key (matching/identity-key profile)]
     (when (empty? (get @proposals key))
@@ -118,8 +135,7 @@
           (imports/fail! 409 "policy-conflict" "Ten import ma już inne potwierdzone ustawienia. Nie zmieniono zapisanych decyzji."))
         (let [ctx (context tx id selected-policy)
               saved (into {} (map (juxt #(vector (:worksheet-index %) (:row-number %)) identity) (repository/all-decisions tx id)))
-              automatic (set (map #(vector (:worksheet-index %) (:row-number %))
-                                  (batches/query tx ["SELECT d.worksheet_index,d.row_number FROM import_review_decisions d JOIN import_review_events e ON e.batch_id=d.batch_id AND e.worksheet_index=d.worksheet_index AND e.row_number=d.row_number AND e.after_version=d.version WHERE d.batch_id=? AND e.event_type='decision-saved' AND e.after_value->'automation'->>'rule-version' IN (?,?) AND coalesce(e.after_value->'automation'->>'identity-confirmed','false')='false'" id "bank-exact-identity-v1" matching/rule-version])))
+              automatic (automatic-locators tx id)
               proposals (atom (group-by #(matching/identity-key (imports/decode-json (:profile %)))
                                         (:proposals (repository/proposals tx id 50000 0))))
               changed (volatile! false)]
@@ -146,7 +162,7 @@
                                          :automation {:rule-version matching/rule-version :policy selected-policy :reason (:reason plan)}))
                 (vreset! changed true))))
           (when @changed (repository/advance-batch! tx id))
-          (report tx (batches/batch-row tx id) 25 0))))))
+          (report tx (batches/batch-row tx id) 25 0 "exceptions"))))))
 
 (defn resolve-identity! [ds token csrf id input]
   (jdbc/with-transaction [tx ds]

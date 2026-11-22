@@ -46,8 +46,8 @@
         (assoc-in [:review :editor :draft :financial :overlap-checked] false)
         (update-in [:review :aux] dissoc :payments)
         (assoc-in [:review :choosing] false)
-        (cond-> (and (not= kind "unresolved") (get-in db [:review :automation :data :policy :currency]))
-          (assoc-in [:review :editor :draft :financial :currency] (get-in db [:review :automation :data :policy :currency])))) db))
+        (cond-> (get-in db [:review :resolving])
+          (assoc-in [:review :editor :draft :financial] empty-financial))) db))
 (defn build-input [state]
   (let [editor (:editor state) draft (:draft editor)]
     (-> draft (assoc :catalog-version (:catalog-version editor) :batch-version (:batch-version editor) :version (or (get-in editor [:current :version]) 0))
@@ -113,8 +113,7 @@
     (if (and csrf (proposal-saveable? state))
       (let [result (request db [:editor] (if update? :proposal-update :proposal-create) {:csrf csrf :input input :proposal-id (:id form)})]
         (-> result (assoc-in [:db :review :editor :status] :saving)
-            (assoc-in [:db :review :editor :use-after-save] (true? use?))
-            (assoc-in [:db :review :editor :selection-csrf] csrf))) {:db db})))
+            (assoc-in [:db :review :editor :use-after-save] (true? use?)))) {:db db})))
 (defn choose-payment [db [_ id]]
   (if-let [payment (some #(when (= id (:id %)) %) (get-in db [:review :aux :payments :data :payments]))]
     (if (editable? (get-in db [:review :editor]))
@@ -135,20 +134,13 @@
       (cond
         (contains? #{:unauthenticated :forbidden} error)
         {:db (assoc db :review {:mode :session-error :error error}) :decision/abort nil :review/abort nil}
-        error (let [mutation? (contains? #{:decision-save :proposal-create :proposal-update :resolve-identity} op)
+        error (let [mutation? (contains? #{:decision-save :proposal-create :proposal-update} op)
                     result {:db (update-in db (into [:review] slot) assoc :status (if mutation? :ready :error) :error error
                                            :requires-reload (and mutation? (contains? #{:conflict :uncertain} error)))}
                     result (if mutation? (update result :db update-in [:review :editor] dissoc :advance-after-save :use-after-save) result)]
                 (if (= error :blocked) (assoc result :dispatch [:decision/aux :blockers 0]) result))
         (contains? #{:reconcile :reconciliation} op)
         {:db (-> db (assoc-in [:review :automation] {:status :ready :data data}) (assoc-in [:review :work :batch] (:batch data)))}
-        (= op :resolve-identity)
-        (let [result (-> db (assoc-in [:review :editor] {:status :ready :row (:row data) :catalog-version (:catalog-version data)
-                                                         :batch-version (get-in data [:batch :version]) :current (:decision data)
-                                                         :draft (draft-from (:decision data)) :initial (draft-from (:decision data))})
-                         (assoc-in [:review :work :batch] (:batch data)) (assoc-in [:review :choosing] false))]
-          (if (get-in data [:decision :complete]) {:db result :dispatch [:review/automatic]}
-              {:db result}))
         (= op :decision-load)
         {:db (-> db (assoc-in [:review :editor] {:status :ready :row (:row data) :catalog-version (:catalog-version data) :batch-version (get-in data [:batch :version]) :current (:decision data)
                                                  :draft (draft-from (:decision data)) :initial (draft-from (:decision data))})
@@ -168,9 +160,7 @@
                                        :batch-version (get-in data [:batch :version]) :saved-proposal proposal :proposal-form nil)
                          (update-in [:review :editor] dissoc :use-after-save)
                          (assoc-in [:review :work :batch] (:batch data)) (update :review dissoc :preview :aux))]
-          (if (and use? (get-in db [:review :resolving]) (get-in db [:review :automation :data :policy]))
-            {:db result :dispatch [:decision/automatic-target (get-in db [:review :editor :selection-csrf]) "new-proposal" (:id proposal) (:version proposal)]}
-            {:db (if use? (choose-target result [:decision/target "new-proposal" (:id proposal) (:version proposal)]) result)}))
+          {:db (if use? (choose-target result [:decision/target "new-proposal" (:id proposal) (:version proposal)]) result)})
         (contains? #{:preview-create :preview-load} op)
         (cond-> {:db (-> db (assoc-in [:review :preview] {:status :ready :data data}) (update :review dissoc :open-confirmation))}
           (get-in db [:review :open-confirmation]) (assoc :decision/confirmation {:batch-id (get-in data [:batch :id]) :preview-id (get-in data [:preview :id])})
@@ -194,9 +184,9 @@
 (rf/reg-event-db :decision/mode choose-mode)
 (rf/reg-event-fx :decision/save-next (with-db save-next))
 
-(defn automatic-report [db [_ offset]]
+(defn automatic-report [db [_ offset queue]]
   (if (get-in db [:review :work :batch-id])
-    (request db [:automation] :reconciliation {:limit 25 :offset offset}) {:db db}))
+    (request db [:automation] :reconciliation {:limit 25 :offset offset :queue (or queue "exceptions")}) {:db db}))
 (defn automatic-run [db [_ csrf policy]]
   (if (and csrf (get-in db [:review :work :batch]) (not (dirty? (:review db)))
            (not (busy? (:review db))) (not= :loading (get-in db [:review :automation :status])))
@@ -209,14 +199,3 @@
   (let [result (create-preview db [:decision/preview csrf])]
     (if (:decision/request result) (assoc-in result [:db :review :open-confirmation] true) result)))
 (rf/reg-event-fx :decision/automatic-preview (with-db automatic-preview))
-
-(defn automatic-target [db [_ csrf kind id version]]
-  (if (and csrf (editable? (get-in db [:review :editor])) (get-in db [:review :automation :data :policy]))
-    (let [result (request db [:editor] :resolve-identity
-                          (merge (get-in db [:review :selected])
-                                 {:csrf csrf :input (merge (get-in db [:review :selected])
-                                                           {:batch-version (get-in db [:review :editor :batch-version])
-                                                            :catalog-version (get-in db [:review :editor :catalog-version])
-                                                            :kind kind :target-id id :target-version version})}))]
-      (assoc-in result [:db :review :editor :status] :saving)) {:db db}))
-(rf/reg-event-fx :decision/automatic-target (with-db automatic-target))

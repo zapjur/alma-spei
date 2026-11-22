@@ -126,7 +126,8 @@
                                       [:strong (:name candidate)] [:p (:street candidate) ", " (:postal-code candidate) " " (:city candidate)]
                                       [:p (:match-reason candidate)]
                                       [:button {:type "button" :disabled (or (not (:is-active candidate)) (not (editing/editable? editor)))
-                                                :on-click #(rf/dispatch [:decision/automatic-target csrf "existing-donor" (:id candidate) (:version candidate)])} "To ten darczyńca"]])])
+                                                :on-click #(when (decisions/allow-leave!)
+                                                             (rf/dispatch [:decision/target "existing-donor" (:id candidate) (:version candidate)]))} "To ten darczyńca"]])])
         (when (get-in state [:resolution :new-profile-candidate])
           [:p "Brak podobnych aktywnych profili. Sprawdź, czy dodać nowego darczyńcę."])
         [:p "Sprawdź nadawcę z pliku po lewej. Wybierz osobę lub organizację z bazy albo przygotuj nowy profil."]
@@ -141,9 +142,8 @@
              [:div [donor-card state]
               (when donor
                 [:button {:type "button" :class "button-primary" :disabled (or (not (editing/editable? editor)) (not (:is-active donor)))
-                          :on-click #(when (decisions/allow-leave!) (rf/dispatch (if (and (:resolving state) (get-in state [:automation :data :policy]))
-                                                                                   [:decision/automatic-target csrf "existing-donor" (:id donor) (:version donor)]
-                                                                                   [:decision/target "existing-donor" (:id donor) (:version donor)])))} "Przypisz wpłatę temu darczyńcy"])
+                          :on-click #(when (decisions/allow-leave!)
+                                       (rf/dispatch [:decision/target "existing-donor" (:id donor) (:version donor)]))} "Przypisz wpłatę temu darczyńcy"])
               (when (and donor (not (:is-active donor))) [:p "Ten profil jest archiwalny. Wybierz aktywnego darczyńcę."])])])
         (when (= mode :new) [decisions/proposal-form state csrf])
         [:button {:type "button" :class "button-quiet" :disabled (not (editing/editable? editor)) :on-click #(choose :reuse)} "Użyj nowego darczyńcy przygotowanego w tym imporcie"]
