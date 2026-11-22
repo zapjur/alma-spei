@@ -206,3 +206,13 @@
     (effects/request! (constantly xhr) #(swap! received conj %) {:request-id 9 :file (js/File. #js ["Synthetic"] "synthetic.csv") :csrf "csrf"} true)
     (respond! xhr 500 {:code "internal-error" :batch failed-batch :batch-id id})
     (is (= [[:imports/finished 9 {:error :processing-failed :batch failed-batch :batch-id id}]] @received))))
+
+(deftest upload-hands-source-settings-to-analysis-only-after-success
+  (let [policy {:currency "PLN" :new-donor-type "individual"}
+        start (events/start (selected) [:imports/start :file "csrf" false false policy])
+        id (get-in start [:imports/upload :request-id])
+        result (events/finished (:db start) [:imports/finished id {:data data}])]
+    (is (= {:batch-id (:id batch) :policy policy :csrf "csrf"} (:imports/reconcile result)))
+    (is (nil? (get-in result [:db :imports :automation-csrf])))
+    (is (nil? (:imports/reconcile (events/finished (:db start) [:imports/finished id {:error :uncertain}]))))
+    (is (nil? (:imports/reconcile (events/finished (:db start) [:imports/finished (inc id) {:data data}]))))))

@@ -1,5 +1,9 @@
 # Guided import review and fictional Polish demo data
 
+The normal manual-first workflow below is superseded by the user's explicit
+[automatic reconciliation correction](automatic-reconciliation.md). Detailed
+controls are retained for exceptions; certain rows no longer require per-row review.
+
 ## CONFIRMED scope
 
 The user approved one-transfer-at-a-time review, donor choice before payment

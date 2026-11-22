@@ -33,7 +33,7 @@
 (defn file-description [file] (when file {:name (.-name file) :size (.-size file)}))
 
 (defn upload-form [state csrf]
-  (r/with-let [confirmed (r/atom false)]
+  (r/with-let [confirmed (r/atom false) policy (r/atom {:currency "" :new-donor-type nil})]
     (let [retry? (contains? #{:failed :retry-ready} (:status state)) busy? (= :uploading (:status state))
           file (:file state) selectable? (events/selectable? state)]
       [:form {:class "import-form" :aria-label "Przesyłanie pliku bankowego"
@@ -41,7 +41,7 @@
                            (.preventDefault event)
                            (let [input (.namedItem (.. event -currentTarget -elements) "file")
                                  selected (aget (.-files input) 0)]
-                             (rf/dispatch [:imports/start selected csrf retry? @confirmed])))}
+                             (rf/dispatch [:imports/start selected csrf retry? @confirmed @policy])))}
        [:h3 "Wybierz plik z przelewami"]
        [:p {:class "form-intro"} "Zaczniemy od sprawdzenia pliku. Dane w bazie zmienią się dopiero po Twoim zatwierdzeniu."]
        [:label {:for "import-file" :class "file-picker"} [:span "Plik bankowy (CSV lub XLSX)"]
@@ -65,6 +65,17 @@
            [:option {:value ""} "Wybierz separator"]
            [:option {:value ";"} "Średnik (;)"]
            [:option {:value ","} "Przecinek (,)"]]])
+       [:fieldset {:class "file-policy" :disabled busy?}
+        [:legend "Ustawienia źródła — raz dla całego pliku"]
+        [:label {:for "import-currency"} "Waluta przelewów"
+         [:input {:id "import-currency" :required true :pattern "[A-Z]{3}" :max-length 3 :placeholder "np. PLN"
+                  :value (:currency @policy) :on-change #(swap! policy assoc :currency (str/upper-case (.. % -target -value)))}]]
+        [:label {:for "import-donor-type"} "Typ nowych darczyńców, jeśli jest znany dla tego pliku"
+         [:select {:id "import-donor-type" :value (or (:new-donor-type @policy) "")
+                   :on-change #(swap! policy assoc :new-donor-type (not-empty (.. % -target -value)))}
+          [:option {:value ""} "Nie wiem — zapytaj tylko przy nowych darczyńcach"]
+          [:option {:value "individual"} "Osoby"] [:option {:value "business"} "Firmy"] [:option {:value "organization"} "Organizacje"]]]
+        [:p {:class "field-help"} "Potwierdzasz walutę w źródle. Typ dotyczy tylko nowych profili; nie zmienia istniejących. Brak typu nie blokuje dopasowania istniejących darczyńców."]]
        (when retry? [:p "Ponownie wybierz ten sam plik i potwierdź analizę. Serwer sprawdzi zgodność zawartości."])
        (when retry?
          [:label {:class "import-confirmation"}
@@ -72,7 +83,7 @@
                    :on-change #(reset! confirmed (.. % -target -checked))}]
           " Potwierdzam ponowną analizę tego samego pliku. Poprzednia próba pozostanie w historii."])
        [:button {:type "submit" :class "button-primary" :disabled (or busy? (not selectable?) (and retry? (not @confirmed)))}
-        (if retry? "Ponów analizę tego samego pliku" "Prześlij do analizy")]])))
+        (if retry? "Ponów analizę tego samego pliku" "Prześlij i dopasuj automatycznie")]])))
 
 (defn progress-panel [{:keys [progress sent?]}]
   [:div {:role "status" :aria-live "polite" :class "import-progress"}
@@ -164,7 +175,7 @@
                       [:p "Przejrzyj wiersze i wskaż, do kogo należy każdy przelew. Błędy w danych pozostają widoczne w raporcie."]]
                      [:a {:href (str "#review/" (:id batch) "/0") :class "button-primary"} "Przejdź do weryfikacji"]])
                   (when (= :loading status) [:p {:role "status"} "Pobieranie raportu…"])
-                  [report-table state] [pagination state]
+                  [:details {:class "review-secondary"} [:summary "Szczegóły odczytu pliku"] [report-table state] [pagination state]]
                   [:button {:type "button" :disabled (= :loading status) :on-click #(rf/dispatch [:imports/reload])} "Odśwież raport"]]
          (= :uncertain status) [:div [:p "Możesz sprawdzić znany import albo odszukać nową próbę w historii. Nie przesyłamy pliku ponownie automatycznie."]
                                 [:a {:href "#imports/history/0"} "Otwórz historię importów"]]

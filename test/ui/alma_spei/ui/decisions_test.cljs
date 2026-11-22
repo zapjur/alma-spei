@@ -7,7 +7,7 @@
             [cljs.test :refer-macros [deftest is async]]))
 
 (defn ready []
-  (let [db (review/loaded-work) id (get-in db [:review :editor :request-id])]
+  (let [db (:db (events/load-editor (review/loaded-work))) id (get-in db [:review :editor :request-id])]
     (:db (events/loaded db [:decision/loaded [:editor] id :decision-load
                             {:data {:catalog-version 5 :batch fixture/batch :row fixture/row :decision nil}}]))))
 (defn selected [] (events/choose-target (ready) [:decision/target "existing-donor" fixture/other-id 3]))
@@ -163,3 +163,32 @@
     (is (nil? (get-in found [:db :review :find-row])))
     (is (= {:db (:db next-page)}
            (review-events/loaded (:db next-page) [:review/loaded :rows first-id {:data first-page}])))))
+
+(deftest normal-batch-opening-loads-analysis-without-an-editor
+  (let [opened (review-events/open {} [:review/open {:batch-id fixture/id}])
+        result (review-events/loaded (:db opened) [:review/loaded :rows 1 {:data review/page}])]
+    (is (= [:decision/automatic-report 0] (:dispatch result)))
+    (is (nil? (:decision/request result)))
+    (is (nil? (get-in result [:db :review :editor]))))
+  (let [policy {:currency "PLN" :new-donor-type "individual"}
+        opened (review-events/open {:reconciliation-intent {:batch-id fixture/id :csrf "csrf" :policy policy}}
+                                   [:review/open {:batch-id fixture/id}])
+        result (review-events/loaded (:db opened) [:review/loaded :rows 1 {:data review/page}])
+        analysing (events/automatic-run (:db result) (:dispatch result))]
+    (is (= [:decision/automatic-run "csrf" policy] (:dispatch result)))
+    (is (= :reconcile (get-in analysing [:decision/request :op])))
+    (is (nil? (get-in result [:db :review :intent])))
+    (is (nil? (get-in result [:db :reconciliation-intent])))))
+
+(deftest resolving-identity-returns-only-after-confirmed-complete-response
+  (let [db (-> (ready) (assoc-in [:review :resolving] true)
+               (assoc-in [:review :automation :data :policy] {:currency "PLN" :new-donor-type nil}))
+        started (events/automatic-target db [:decision/automatic-target "csrf" "existing-donor" fixture/other-id 3])
+        id (get-in started [:decision/request :request-id])
+        decision (assoc events/empty-draft :kind "existing-donor" :donor-id fixture/other-id :target-version 3 :complete true)
+        data {:batch fixture/batch :row fixture/row :catalog-version 5 :decision decision}]
+    (is (= :resolve-identity (get-in started [:decision/request :op])))
+    (is (= [:review/automatic] (:dispatch (events/loaded (:db started) [:decision/loaded [:editor] id :resolve-identity {:data data}]))))
+    (is (nil? (:dispatch (events/loaded (:db started) [:decision/loaded [:editor] id :resolve-identity {:data (assoc-in data [:decision :complete] false)}]))))
+    (doseq [error [:conflict :uncertain :validation]]
+      (is (nil? (:dispatch (events/loaded (:db started) [:decision/loaded [:editor] id :resolve-identity {:error error}])))))))

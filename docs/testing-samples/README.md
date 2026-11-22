@@ -1,6 +1,6 @@
 # Synthetic manual test files
 
-These files contain invented data only. Use the `ux/guided-import-review` branch in a disposable
+These files contain invented data only. Use the `fix/automatic-import-reconciliation` branch in a disposable
 development database. No production data or accounts are needed.
 
 ## Start the application
@@ -62,12 +62,24 @@ profiles. Search for Jan Kowalski, inspect the address and select the profile at
 separate donor. Select him independently; shared addresses do not justify a merge.
 Helena Nowicka is absent from the seed and exercises the new-donor choice.
 
-1. Upload `bank-valid.csv` with semicolon selected, then choose **Przejdź do weryfikacji**.
-2. Choose **Wybierz darczyńcę z bazy**, search for Jan Kowalski, click **Sprawdź tego darczyńcę**, check the address, then **Przypisz wpłatę temu darczyńcy**.
-3. Enter `PLN`; for this invented example, enter evidence such as `Fikcyjny wyciąg PLN; sprawdzono wcześniejsze wpłaty, przelew listopadowy nie był ujęty.` Select **Nowa, odrębna wpłata**, then check the duplicate-review confirmation.
-4. Click **Zapisz i przejdź dalej**. Only a successful save advances to Jakub Nowak. Repeat the existing-donor choice and payment checks for him.
-5. For Helena, choose **Dodaj nowego darczyńcę**. Enter `Helena Nowicka`, first name `Helena`, type **Osoba**, `ul. Brzozowa 18/7`, `30-001`, `Kraków`, `małopolskie`. Check the existing and prepared-profile checks, then **Zapisz i wybierz darczyńcę**. Complete the payment checks and save/continue.
-6. The final save opens the summary. It should propose **one new donor and three new payments, 250 PLN**. Existing donors retain their fields. Click **Przejdź do zatwierdzenia** only after reviewing the plan.
+1. Open **Nowy import** and select `bank-valid.csv` with separator **Średnik (;)**.
+2. Confirm `PLN` once for the file. For this fictional dataset, choose **Osoby** as the type of new donors. These values are source settings, not guessed columns.
+3. Click **Prześlij i dopasuj automatycznie**. The app opens the summary automatically.
+4. Expect **2 matched transfers, 1 new donor, 3 new payments, 0 exceptions**, totalling **250 PLN**. You should not see a transfer-by-transfer wizard or fill any donor/payment form. The full name/address selects the correct Jan; Jakub remains a separate donor; Helena is prepared automatically.
+5. Click **Sprawdź zmiany i zatwierdź** to inspect the full immutable change plan. Only the final explicit confirmation writes canonical donors/payments.
+
+With the valid sample, no human matching decision is necessary. For exceptions,
+use `bank-ambiguities.csv`: one transfer is prepared automatically; a non-exact
+Jan Kowalski identity and two repeated Jakub payments require decisions. Only these
+three exceptions appear. **Wyjaśnij tę pozycję** opens a relevant comparison. After
+an explicit identity choice, the system runs payment checks itself and returns to
+the summary if no financial ambiguity remains. A possible duplicate still needs an
+explicit financial decision; equal amounts/dates alone do not prove duplication.
+
+If you leave the new-donor type unknown, existing donors can still match; only new
+untyped donors need review. Unsupported sender text, conflicting identities,
+archived matches, invalid rows and negative amounts are exceptions. No name-based
+entity-type inference or default currency is used.
 
 Do not upload both valid CSV and XLSX as independent real financial sources: they
 contain the same invented transfers. Separate bytes can both stage; financial

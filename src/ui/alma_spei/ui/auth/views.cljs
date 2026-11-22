@@ -184,7 +184,7 @@
     [:article {:class "task-card"}
      [:span {:class "task-symbol" :aria-hidden true} "02"]
      [:h3 "Nowe przelewy"]
-     [:p "Wybierz plik bankowy. Krok po kroku sprawdzisz dane przed zapisaniem zmian."]
+     [:p "Prześlij plik. System dopasuje darczyńców, przygotuje nowe wpłaty i pokaże wyjątki."]
      [:button {:type "button" :class "button-primary" :disabled disabled?
                :on-click #(navigate! state :imports)} "Importuj przelewy"]]]
    [:section {:class "resume-card" :aria-labelledby "resume-heading"}
@@ -197,7 +197,7 @@
     [:h3 "Jak działa import?"]
     [:ol
      [:li [:strong "Wybierz plik"] [:span "Prześlij przelewy z banku."]]
-     [:li [:strong "Sprawdź dane"] [:span "Przejrzyj błędy i przypisz darczyńców."]]
+     [:li [:strong "Sprawdź dane"] [:span "Wyjaśnij tylko niejednoznaczne pozycje."]]
      [:li [:strong "Zatwierdź zmiany"] [:span "Najpierw zobaczysz pełne podsumowanie."]]]]])
 
 (defn sidebar [state user screen disabled? busy]

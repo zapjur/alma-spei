@@ -138,8 +138,8 @@
           [:div {:class "review-checklist" :role "status"}
            [:strong "Aby przejść dalej:"] [:ul (for [message missing] ^{:key message} [:li message])]])
         [:button {:type "button" :class "button-primary" :disabled (not (events/complete-saveable? state))
-                  :on-click #(rf/dispatch [:decision/save-next csrf])} "Zapisz i przejdź dalej"]
-        [:p {:class "field-help"} "Po ostatnim przelewie przejdziesz do podsumowania. Ten zapis nie dodaje jeszcze wpłat do bazy."]])
+                  :on-click #(rf/dispatch [:decision/save-next csrf])} (if (:resolving state) "Zapisz wyjaśnienie i wróć do podsumowania" "Zapisz i przejdź dalej")]
+        [:p {:class "field-help"} "Po zapisaniu wrócisz do podsumowania. Ten zapis nie dodaje jeszcze wpłaty do bazy."]])
      (when draft
        [:details {:class "review-secondary"}
         [:summary "Zapis roboczy i dodatkowe opcje"]

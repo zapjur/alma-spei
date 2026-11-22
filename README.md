@@ -163,13 +163,13 @@ backup/approval steps. Undo requires a confirmation dialog and current server
 eligibility. An undone attempt offers a fresh-file reimport flow; history remains.
 See [the confirmation and history UI](docs/task-40-import-summary-proposal.md).
 
-The [guided import review](docs/guided-import-review.md) now asks for a donor first,
-then payment checks, and advances after a confirmed save. Summary blockers link to
-the relevant transfer; confirmation explains the remaining steps. The
-[fictional Polish samples and click-by-click guide](docs/testing-samples/README.md)
-include Jan Kowalski, Jakub Nowak and Helena Nowicka, with a complete positive
-250 PLN example. Older/edited demo seeds are preserved and require a separate
-disposable database to try the revised fixture names.
+The [automatic reconciliation flow](docs/automatic-reconciliation.md) prepares
+exact donor matches, new profiles and payments after one set of source settings.
+The summary shows totals and only ambiguous cases need human decisions. Final
+approval still applies the immutable preview transactionally. The
+[fictional Polish samples and testing guide](docs/testing-samples/README.md) include
+a positive 250 PLN example and separate ambiguity/invalid examples. Existing demo
+records are preserved; no database reset or schema change is needed for this UI fix.
 
 Windows compatibility uses the target filesystem's POSIX or ACL protection for
 private uploads and initialization. `bb init` runs a small JVM command with the

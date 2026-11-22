@@ -3,7 +3,9 @@
             [alma-spei.ui.imports.execution-events :as execution]
             [re-frame.db :as db]))
 
-(defn operation? [] (or (execution/busy? (:execution @db/app-db)) (= :uploading (get-in @db/app-db [:imports :status]))))
+(defn operation? [] (or (execution/busy? (:execution @db/app-db)) (= :uploading (get-in @db/app-db [:imports :status]))
+                        (and (= :loading (get-in @db/app-db [:review :automation :status]))
+                             (= :reconcile (get-in @db/app-db [:review :automation :op])))))
 (defn allow-leave! []
   (and (not (operation?))
        (let [state (:review @db/app-db)]

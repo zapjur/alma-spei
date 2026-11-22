@@ -1,5 +1,6 @@
 (ns alma-spei.ui.imports.events
   (:require [alma-spei.common.contracts.imports :as contract]
+            [alma-spei.common.contracts.reconciliation :as reconciliation]
             [alma-spei.common.validation :as validation]
             [clojure.string :as str]
             [re-frame.core :as rf]))
@@ -28,16 +29,16 @@
 (defn separator [db [_ value]]
   (if (and (:imports db) (not (active? (:imports db))) (contains? #{"" "," ";"} value))
     (assoc-in db [:imports :separator] value) db))
-(defn start [db [_ file csrf retry? confirmed?]]
+(defn start [db [_ file csrf retry? confirmed? policy]]
   (let [state (:imports db) batch (:batch state)]
     (if (and (#{:idle :error :failed :retry-ready} (:status state)) (selectable? state)
-             file csrf
+             file csrf (or (nil? policy) (validation/valid? reconciliation/policy policy))
              (or (and (not retry?) (nil? batch))
                  (and retry? confirmed? (or (and (= :failed (:status state)) (= "failed" (:state batch)))
                                             (and (= :retry-ready (:status state)) (= "undone" (:state batch)))))))
       (let [id (next-id db)]
         {:db (-> db (assoc :imports-sequence id)
-                 (update :imports assoc :status :uploading :request-id id :error nil :progress nil :sent? false :rows []))
+                 (update :imports assoc :status :uploading :request-id id :error nil :progress nil :sent? false :rows [] :policy policy :automation-csrf csrf))
          :imports/upload (cond-> {:request-id id :file file :csrf csrf :separator (:separator state)}
                            retry? (assoc :retry {:id (:id batch) :version (:version batch)}))})
       {:db db})))
@@ -45,7 +46,7 @@
   (if (and (= id (get-in db [:imports :request-id])) (= :uploading (get-in db [:imports :status])))
     (update db :imports assoc :progress percent :sent? sent?) db))
 (defn purge [db error]
-  (-> db (dissoc :review) (assoc :execution {:session-error error})
+  (-> db (dissoc :review :reconciliation-intent) (assoc :execution {:session-error error})
       (assoc :imports (assoc initial-state :status :session-error :error error))
       (assoc :imports-sequence (next-id db))))
 (defn purge-result [db error]
@@ -55,10 +56,12 @@
     {:db db}
     (cond
       (#{:unauthenticated :forbidden} error) (purge-result db error)
-      data {:db (update db :imports #(-> % (assoc :status :ready :batch (:batch data) :rows (:rows data)
-                                                  :total (:total data) :offset (:offset data) :limit (:limit data)
-                                                  :skipped-empty-rows (:skipped-empty-rows data) :file nil :error nil)
-                                         (dissoc :request-id :batch-id :progress :sent?)))}
+      data (cond-> {:db (update db :imports #(-> % (assoc :status :ready :batch (:batch data) :rows (:rows data)
+                                                          :total (:total data) :offset (:offset data) :limit (:limit data)
+                                                          :skipped-empty-rows (:skipped-empty-rows data) :file nil :error nil)
+                                                 (dissoc :request-id :batch-id :progress :sent? :automation-csrf)))}
+             (get-in db [:imports :policy])
+             (assoc :imports/reconcile {:batch-id (get-in data [:batch :id]) :policy (get-in db [:imports :policy]) :csrf (get-in db [:imports :automation-csrf])}))
       :else {:db (update db :imports
                          #(cond-> (assoc % :error error :rows [] :status (cond
                                                                            batch :failed
