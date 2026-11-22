@@ -20,14 +20,18 @@ currency nor entity type is inferred from names or missing columns. Successful
 upload hands these transient settings to the batch analysis automatically; they
 are never written into the URL or browser storage.
 
-`bank-exact-identity-v1` supports the explicit text layout
+`bank-exact-identity-v2` supports the explicit text layout
 `full name, street and number, NN-NNN locality`. It preserves the full name and
-does not split first/surname or infer household membership. Case and whitespace
-normalization preserve accents, address/unit detail and punctuation. Exactly one
+does not split first/surname or infer household membership. Exact comparison normalizes Unicode composition, case, whitespace,
+Polish postcode presentation and supported street prefixes. It preserves
+accents, name punctuation and building/unit detail. Exactly one
 active canonical profile matching all four identity fields can link automatically.
 Duplicate exact identities, name/address conflicts, inactive profiles, conflicting
-incoming identities and unsupported text become exceptions. Related candidates
-are bounded in the report; normal donor search remains available.
+incoming identities and unsupported text become exceptions. The report ranks up to five active profiles using exact identity, accent-folded
+full name, full address and the last name token of individuals. Each suggestion
+has a Polish explanation. Approximate matches need staff review before a new
+profile is proposed. Suggestions are read from the report’s catalogue snapshot,
+and normal donor search remains available.
 
 A complete valid identity with no related canonical donor and an explicitly
 confirmed source type can produce a new staged profile. Repeated use of the same

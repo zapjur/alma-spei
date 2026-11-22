@@ -157,3 +157,28 @@
     (is (= 1 (get-in result [:counts :matched])))
     (is (= ["identity-ambiguity" "identity-ambiguity"] (mapv :reason (:exceptions result))))
     (is (= [1 0] (subvec (counts) 0 2)))))
+
+(deftest active-suggestions-are-ranked-and-refresh-with-the-catalogue
+  (let [same-name (donor! "Jan Żurek" "ul. Polna 2")
+        _ (donor! "Adam Żurek" "ul. Polna 3")
+        batch (calls/batch "2026-11-01;Jan Zurek, ul. Lipowa 1, 32-020 Wieliczka;Darowizna;25\n")
+        before (:body (analyse batch policy))
+        exact-address (donor! "Anna Nowak" "ul. Lipowa 1")
+        after (:body (calls/call :get (url batch) nil))
+        candidates (get-in after [:exceptions 0 :candidates])]
+    (is (= "identity-ambiguity" (get-in before [:exceptions 0 :reason])))
+    (is (validation/valid? contract/response after))
+    (is (< (:catalog-version before) (:catalog-version after)))
+    (is (= (:id same-name) (:id (first candidates))))
+    (is (= (:id exact-address) (:id (second candidates))))
+    (is (= "Podobna pełna nazwa; adres różni się lub jest niepełny." (:match-reason (first candidates))))
+    (is (= (:version (:batch before)) (:version (:batch after))))
+    (is (false? (get-in after [:exceptions 0 :new-profile-candidate])))))
+
+(deftest a-complete-unrelated-identity-is-a-new-profile-candidate
+  (let [batch (calls/batch "2026-11-01;Jan Zurek, ul. Lipowa 1, 32-020 Wieliczka;Darowizna;25\n")
+        result (:body (analyse batch (assoc policy :new-donor-type nil)))
+        exception (first (:exceptions result))]
+    (is (= "donor-type" (:reason exception)))
+    (is (empty? (:candidates exception)))
+    (is (true? (:new-profile-candidate exception)))))
