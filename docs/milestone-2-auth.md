@@ -245,3 +245,23 @@ stored at issuance. Local credential changes increment both their own credential
 version and the user's security version, then revoke all sessions atomically.
 A PostgreSQL fake-provider test proves that session issuance and permissions work
 without a local credential; this does not implement an external provider.
+
+## Task #58 account UI acceptance
+
+The existing account UI on `origin/main` already implements the requested flows.
+A headless Chrome run against the HTTP application and an isolated synthetic
+PostgreSQL database verified the following:
+
+- An anonymous browser shows the Polish login form with no self-registration.
+- A temporary-password session shows the mandatory password-change form, hides
+  workspace navigation, and receives 403 from the donor API until the password
+  is changed. An invalid replacement leaves the restriction in effect.
+- A staff account can change its own password from the workspace.
+- An administrator can create an individual staff account, dismiss the temporary
+  password display, and issue a reset password. The staff browser can use the
+  reset password and must replace it before returning to the workspace.
+- A staff browser with an active session receives 401 on its next protected
+  request after either an administrator reset or deactivation. Reload returns
+  to the login screen.
+
+All account and credential values used in the run were synthetic.
