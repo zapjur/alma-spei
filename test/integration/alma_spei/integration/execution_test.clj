@@ -193,7 +193,9 @@
     (doseq [sql ["DELETE FROM donation_reversals" "UPDATE import_commits SET batch_version=999" "DELETE FROM import_undos"
                  "UPDATE import_backup_runs SET expires_at=now()" "UPDATE donors SET import_batch_id=NULL"]]
       (is (= "42501" (try (repository/query (review/ds) [sql]) nil (catch SQLException e (.getSQLState e))))))
-    (is (thrown? Exception (database/rollback-latest! (migrations/migration-config (:migrator database/*database*)))))
+    (let [cfg (migrations/migration-config (:migrator database/*database*))]
+      (migratus/down cfg 202611220001)
+      (is (thrown? Exception (migratus/down cfg 202611150002))))
     (is (= 1 (count-of "donation_reversals")))))
 
 (deftest explicit-duplicate-reference-never-reverses-the-original-payment
@@ -295,7 +297,8 @@
   (let [donor (donor-fixture/create-donor "Synthetic legacy donor" true) batch (review/batch)
         saved (successful (review/save batch (review/input batch donor)))
         cfg (migrations/migration-config (:migrator database/*database*)) id (UUID/randomUUID)]
-    (database/rollback-latest! cfg)
+    (migratus/down cfg 202611220001)
+    (migratus/down cfg 202611150002)
     (repository/query (:migrator database/*database*)
                       ["INSERT INTO import_previews(id,batch_id,batch_version,created_by,rule_version,effect_digest,summary,item_count) VALUES (?,?,?,?,'review-preview-v1',repeat('a',64),?::jsonb,0)"
                        id (UUID/fromString (:id batch)) (get-in saved [:batch :version]) (:actor fixture/*context*)
@@ -350,3 +353,15 @@
     (is (= 409 (:status (undo! result))))
     (is (= "dependent-records" (get-in (undo! result) [:body :blockers 0 :code])))
     (is (= 1 (count-of "active_donations")))))
+
+(deftest linked-tax-evidence-blocks-archiving-an-import-created-donor
+  (let [result (commit! (plan!))
+        donor (first (ids "donors"))
+        tax-batch (database/staged-source! (review/ds) (:actor fixture/*context*) "tax" "c")]
+    (repository/query (review/ds)
+                      ["INSERT INTO tax_identification_evidence (batch_id,worksheet_index,row_number,subject_role,donor_id) VALUES (?,1,2,'taxpayer',?)"
+                       tax-batch donor])
+    (let [undo (undo! result)]
+      (is (= 409 (:status undo)))
+      (is (= [{:code "dependent-records" :entity-id (str donor)}] (get-in undo [:body :blockers])))
+      (is (= 1 (count-of "active_donations"))))))

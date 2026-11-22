@@ -30,13 +30,14 @@
 (defn reverse! [tx batch undo actor donation]
   (query tx ["INSERT INTO donation_reversals(donation_id,import_batch_id,undo_id,actor_id,reason) VALUES (?,?,?,?,'import-undo')" donation batch undo actor]))
 (defn unknown-dependencies? [tx]
-  (:present (one tx ["SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE contype='f' AND confrelid IN ('donors'::regclass,'donations'::regclass) AND conrelid NOT IN ('donations'::regclass,'donor_audit_events'::regclass,'import_review_decisions'::regclass,'import_commit_items'::regclass,'donation_reversals'::regclass)) AS present"])))
+  (:present (one tx ["SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE contype='f' AND confrelid IN ('donors'::regclass,'donations'::regclass) AND conrelid NOT IN ('donations'::regclass,'donor_audit_events'::regclass,'import_review_decisions'::regclass,'import_commit_items'::regclass,'donation_reversals'::regclass) AND conrelid <> 'tax_identification_evidence'::regclass) AS present"])))
 (defn payment-dependencies? [tx batch payment]
   (or (unknown-dependencies? tx)
       (:present (one tx ["SELECT EXISTS(SELECT 1 FROM import_commit_items WHERE donation_id=? AND batch_id<>?) AS present" payment batch]))
       (:present (one tx ["SELECT EXISTS(SELECT 1 FROM import_review_decisions d JOIN import_batches b ON b.id=d.batch_id WHERE d.batch_id<>? AND b.state IN ('review','approved') AND d.donation_id=?) AS present" batch payment]))))
 (defn dependencies? [tx batch donor payments]
   (or (unknown-dependencies? tx)
+      (:present (one tx ["SELECT EXISTS(SELECT 1 FROM tax_identification_evidence WHERE donor_id=?) AS present" donor]))
       (:present (one tx ["SELECT EXISTS(SELECT 1 FROM active_donations WHERE donor_id=? AND import_batch_id IS DISTINCT FROM ?) AS present" donor batch]))
       (:present (one tx ["SELECT EXISTS(SELECT 1 FROM import_commit_items WHERE donor_id=? AND batch_id<>?) AS present" donor batch]))
       (:present (one tx ["SELECT EXISTS(SELECT 1 FROM import_review_decisions d JOIN import_batches b ON b.id=d.batch_id WHERE d.batch_id<>? AND b.state IN ('review','approved') AND d.donor_id=?) AS present" batch donor]))

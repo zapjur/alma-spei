@@ -135,3 +135,25 @@ edits/references. Unknown donor/payment FK modules block compensation until thei
 dependency policy is implemented. The test-only down migration refuses execution
 history; on an unused disposable database it removes v2-only snapshots before
 restoring the preceding schema. It is not a production rollback procedure.
+
+## Task #64 source evidence storage
+
+Migration `202611220001-source-evidence` adds two append-only tables for the
+application role. Each evidence row references a staged workbook row and an
+import batch of the corresponding source type.
+
+- `source_observations` identifies the master-workbook cell by column index
+  within its staged row. It preserves a value as text with a source type
+  (text, number or boolean). Year and month may be absent. An observation
+  does not create a donation or establish a reportable amount.
+- `tax_identification_evidence` records taxpayer and spouse roles separately
+  within the same staged tax row. Donor links and tax year may be absent.
+  The reported amount stays on the source record. A role record alone does
+  not allocate money, establish a donor relationship or create a mailing group.
+
+The migration can be rolled back while both tables are empty. Historical
+observation meanings, month-to-period mapping and tax attribution remain open.
+
+Import compensation checks for linked tax evidence before archiving a donor
+created by an import. Future adapter writes that link evidence to donors must
+use the existing catalogue lock and check that the donor is active.
