@@ -36,3 +36,9 @@
     (is (= expected (identity/street-key street))))
   (is (apply distinct? (map identity/street-key
                             ["ul. Lipowa 12/4" "ul. Lipowa 12/5" "ul. Lipowa 124" "ul. Lipowa 12"]))))
+
+(deftest exact-matching-keeps-accents-and-apartments-distinct
+  (is (= "one" (get-in (matching/donor-plan (assoc profile :street "Ulica Lipowa 12/4"
+                                                   :postal-code "30001") [donor] nil) [:donor :id])))
+  (is (nil? (:donor (matching/donor-plan (assoc profile :street "ul. Lipowa 12/5") [donor] nil))))
+  (is (nil? (:donor (matching/donor-plan (assoc profile :city "Krakow") [donor] nil)))))

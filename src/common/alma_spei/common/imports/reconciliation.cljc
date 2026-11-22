@@ -1,10 +1,12 @@
 (ns alma-spei.common.imports.reconciliation
-  (:require [clojure.string :as str]))
+  (:require [alma-spei.common.domain.donor-identity :as identity]
+            [clojure.string :as str]))
 
-(def rule-version "bank-exact-identity-v1")
+(def rule-version "bank-exact-identity-v2")
 (def identity-fields [:name :street :postal-code :city])
-(defn normalized [value] (-> (or value "") str/trim str/lower-case (str/replace #"\s+" " ")))
-(defn identity-key [profile] (mapv #(normalized (get profile %)) identity-fields))
+(def normalized identity/text-key)
+(defn identity-key [{:keys [name street postal-code city]}]
+  [(normalized name) (identity/street-key street) (identity/postal-key postal-code) (normalized city)])
 (defn sender-profile [sender]
   ;; Only this explicit comma-separated layout is supported. Never infer first names or entity types.
   (when-let [[_ name street postcode city] (re-matches #"\s*([^,]+),\s*([^,]+),\s*([0-9]{2}-[0-9]{3})\s+([^,]+)\s*" (or sender ""))]
@@ -17,7 +19,7 @@
                 related (filter #(or (= (first key) (normalized (:name %)))
                                      (= (subvec key 1) (subvec (identity-key %) 1))) donors)]
             (cond
-              (and (= 1 (count exact)) (:is-active (first exact))) {:kind "existing-donor" :donor (first exact)}
+              (and (every? seq key) (= 1 (count exact)) (:is-active (first exact))) {:kind "existing-donor" :donor (first exact)}
               (seq related) {:reason "identity-ambiguity" :candidates (vec related)}
               (nil? new-type) {:reason "donor-type"}
               :else {:kind "new-proposal" :profile (merge {:first-name nil :province nil :entity-type new-type} profile)}))))

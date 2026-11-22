@@ -147,3 +147,13 @@
       (is (= 200 (:status saved)))
       (is (false? (:ready report)))
       (is (= ["unsupported-amount"] (mapv :reason (:exceptions report)))))))
+
+(deftest exact-normalization-preserves-building-and-unit-identity
+  (donor! "Jan Kowalski" "Ulica Lipowa 1/4")
+  (let [batch (calls/batch (str "2026-11-01;Jan Kowalski, ul. Lipowa 1/4, 32-020 Wieliczka;Darowizna;25\n"
+                                "2026-11-02;Jan Kowalski, ul. Lipowa 1/5, 32-020 Wieliczka;Darowizna;25\n"
+                                "2026-11-03;Adam Kowalski, ul. Lipowa 1/4, 32-020 Wieliczka;Darowizna;25\n"))
+        result (:body (analyse batch policy))]
+    (is (= 1 (get-in result [:counts :matched])))
+    (is (= ["identity-ambiguity" "identity-ambiguity"] (mapv :reason (:exceptions result))))
+    (is (= [1 0] (subvec (counts) 0 2)))))

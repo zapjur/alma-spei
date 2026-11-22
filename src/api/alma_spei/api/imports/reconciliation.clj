@@ -107,7 +107,7 @@
         (let [ctx (context tx id selected-policy)
               saved (into {} (map (juxt #(vector (:worksheet-index %) (:row-number %)) identity) (repository/all-decisions tx id)))
               automatic (set (map #(vector (:worksheet-index %) (:row-number %))
-                                  (batches/query tx ["SELECT d.worksheet_index,d.row_number FROM import_review_decisions d JOIN import_review_events e ON e.batch_id=d.batch_id AND e.worksheet_index=d.worksheet_index AND e.row_number=d.row_number AND e.after_version=d.version WHERE d.batch_id=? AND e.event_type='decision-saved' AND e.after_value->'automation'->>'rule-version'=? AND coalesce(e.after_value->'automation'->>'identity-confirmed','false')='false'" id matching/rule-version])))
+                                  (batches/query tx ["SELECT d.worksheet_index,d.row_number FROM import_review_decisions d JOIN import_review_events e ON e.batch_id=d.batch_id AND e.worksheet_index=d.worksheet_index AND e.row_number=d.row_number AND e.after_version=d.version WHERE d.batch_id=? AND e.event_type='decision-saved' AND e.after_value->'automation'->>'rule-version' IN (?,?) AND coalesce(e.after_value->'automation'->>'identity-confirmed','false')='false'" id "bank-exact-identity-v1" matching/rule-version])))
               proposals (atom (group-by #(matching/identity-key (imports/decode-json (:profile %)))
                                         (:proposals (repository/proposals tx id 50000 0))))
               changed (volatile! false)]
