@@ -112,7 +112,7 @@
           rows (:rows result)]
       (when-not (= "reserved" (:state current)) (fail! 409 "ineligible-import" "Nie można przetworzyć tego importu."))
       (doseq [row rows]
-        (repository/stage-row! tx (:id current) row (json (:payload row)) (json (:validation-codes row))))
+        (repository/stage-row! tx (:id current) row (json (:payload row)) (json (:validation-codes row)) mapping-version))
       (let [staged (repository/mark-staged! tx (:id current) (count rows) (count (filter #(= "valid" (:validation-state %)) rows))
                                             parse-version mapping-version)]
         (repository/record-event! tx staged (:id actor) "staged" "reserved" nil)

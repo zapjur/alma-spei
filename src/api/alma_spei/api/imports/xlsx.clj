@@ -112,19 +112,20 @@
       (when-not (= @sheets 1) (limits/reject! "invalid-structure"))
       @epoch)))
 
-(defn worksheet [input shared styles]
+(defn worksheet [input shared styles width]
   (let [rows (volatile! []) number (volatile! 0) cells (volatile! {}) cell (volatile! nil)
         capture? (volatile! false) value (volatile! nil) previous-column (volatile! -1)]
     (xml! input
           (fn [tag attrs]
             (case tag
               "row" (let [n (Long/parseLong (get attrs "r" "0"))]
-                      (when-not (< @number n (inc limits/rows)) (limits/reject! "invalid-structure"))
+                      (when (> n limits/rows) (limits/reject! 413 "resource-limit"))
+                      (when-not (< @number n) (limits/reject! "invalid-structure"))
                       (vreset! number n) (vreset! cells {}) (vreset! previous-column -1))
-              "c" (let [[_ column row] (re-matches #"([A-D])([1-9][0-9]*)" (get attrs "r" ""))
-                        index (when column (- (int (first column)) (int \A)))
+              "c" (let [[_ column row] (re-matches #"([A-Z]{1,2})([1-9][0-9]*)" (get attrs "r" ""))
+                        index (when column (dec (reduce #(+ (* 26 %1) (- (int %2) 64)) 0 column)))
                         style (Integer/parseInt (get attrs "s" "0"))]
-                    (when-not (and index (= @number (Long/parseLong row)) (> index @previous-column)
+                    (when-not (and index (< index width) (= @number (Long/parseLong row)) (> index @previous-column)
                                    (<= 0 style) (< style (count styles))) (limits/reject! "invalid-structure"))
                     (vreset! previous-column index)
                     (vreset! cell {:index index :type (get attrs "t" "n") :date? (get styles style false)})
@@ -140,7 +141,7 @@
                                  (when-not (< -1 i (count shared)) (limits/reject! "invalid-structure"))
                                  (get shared i)) raw)]
                     (vswap! cells assoc (:index @cell) (assoc @cell :value text)) (vreset! cell nil))
-              "row" (vswap! rows conj [@number (mapv #(get @cells % {:value ""}) (range 4))])
+              "row" (vswap! rows conj [@number (mapv #(get @cells % {:value ""}) (range width))])
               nil))
           (fn [text]
             (when (and @cell @capture?)
@@ -148,12 +149,14 @@
               (when (> (.length ^StringBuilder @value) limits/cell-characters) (limits/reject! 413 "resource-limit")))))
     @rows))
 
-(defn read-rows [file]
-  (preflight! file)
-  (with-open [package (OPCPackage/open ^File file PackageAccess/READ)]
-    (let [reader (XSSFReader. package) epoch (workbook-epoch reader)
-          shared (strings reader) styles (date-styles reader) sheets (.getSheetsData reader)]
-      (when-not (.hasNext sheets) (limits/reject! "invalid-structure"))
-      (let [rows (with-open [input (.next sheets)] (worksheet input shared styles))]
-        (when (.hasNext sheets) (limits/reject! "invalid-structure"))
-        {:rows rows :epoch epoch}))))
+(defn read-rows
+  ([file] (read-rows file 4))
+  ([file width]
+   (preflight! file)
+   (with-open [package (OPCPackage/open ^File file PackageAccess/READ)]
+     (let [reader (XSSFReader. package) epoch (workbook-epoch reader)
+           shared (strings reader) styles (date-styles reader) sheets (.getSheetsData reader)]
+       (when-not (.hasNext sheets) (limits/reject! "invalid-structure"))
+       (let [rows (with-open [input (.next sheets)] (worksheet input shared styles width))]
+         (when (.hasNext sheets) (limits/reject! "invalid-structure"))
+         {:rows rows :epoch epoch})))))

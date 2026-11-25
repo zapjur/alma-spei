@@ -6,6 +6,9 @@
             [alma-spei.api.http.imports :as http]
             [alma-spei.api.http.routes :as routes]
             [alma-spei.api.imports.adapters.bank :as bank]
+            [alma-spei.api.imports.adapters.master :as master]
+            [alma-spei.api.imports.fingerprint :as fingerprint]
+            [clojure.string :as str]
             [alma-spei.api.imports.limits :as limits]
             [alma-spei.api.imports.repository :as repository]
             [alma-spei.api.imports.service :as service]
@@ -225,3 +228,80 @@
           (is (not (.contains (pr-str (:body result)) "Synthetic private storage detail")))
           (is (= 0 (count-of "import_files")))))))
   (is (= 201 (:status (upload)))))
+
+(def master-headings
+  (vec (concat ["Imię i nazwisko" "Ulica" "Kod pocztowy" "Miejscowość" "Województwo" "Płeć"]
+               (map str (range 2021 2026))
+               ["1,5%"] (map #(str "Miesiąc " %) (range 1 13)) ["Suma"])))
+
+(defn master-sheet [last-row extra]
+  (let [headings (map-indexed (fn [index heading]
+                                (str "<c r='" (char (+ (int \A) index)) "1' t='inlineStr'><is><t>" heading "</t></is></c>"))
+                              master-headings)]
+    (str "<worksheet xmlns='" fixture/main-ns "'><sheetData><row r='1'>"
+         (apply str headings) "</row>"
+         "<row r='3'><c r='A3' t='inlineStr'><is><t>Żaneta Przykładowa</t></is></c>"
+         "<c r='G3'><v>12.50</v></c><c r='M3' t='b'><v>1</v></c>" extra "</row>"
+         (when last-row (str "<row r='" last-row "'/>"))
+         "</sheetData></worksheet>")))
+
+(defn with-master-file [bytes run]
+  (let [file (java.nio.file.Files/createTempFile "synthetic-master-" ".input" (make-array java.nio.file.attribute.FileAttribute 0))]
+    (try
+      (java.nio.file.Files/write file ^bytes bytes (make-array java.nio.file.OpenOption 0))
+      (run (.toFile file))
+      (finally (java.nio.file.Files/deleteIfExists file)))))
+
+(deftest master-adapter-stages-its-own-rule-and-rejects-duplicates-before-parsing
+  (let [bytes (fixture/zip-bytes (fixture/entries {:sheet (master-sheet nil "")}))
+        ds (:ds *context*) token (:token *context*)
+        before (canonical-counts)
+        parser-calls (atom 0)
+        stage (fn [file]
+                (let [measured (with-open [input (java.io.FileInputStream. file)]
+                                 (fingerprint/measure input limits/file-bytes))
+                      batch (:batch (service/reserve! ds token {:source-type "master" :original-filename "synthetic.xlsx"} measured))
+                      _ (swap! parser-calls inc)
+                      parsed (master/parse! file "xlsx" nil)]
+                  (:batch (service/stage! ds token batch parsed master/parse-version master/mapping-version))))]
+    (with-master-file bytes
+      (fn [file]
+        (let [batch (stage file)
+              [row] (:rows (service/rows! ds token (:id batch) {}))]
+          (is (= 1 (:valid-rows batch)))
+          (is (= [1 3] ((juxt :worksheet-index :row-number) row)))
+          (is (= {:name "Żaneta Przykładowa"
+                  :observations [{:column 7 :year 2021 :source-type "number" :value "12.50"}
+                                 {:column 13 :source-type "boolean" :value "1"}]}
+                 (:payload row)))
+          (is (= master/mapping-version (:rule-version (repository/one ds ["SELECT rule_version FROM staged_rows"]))))
+          (is (= 409 (try (stage file) nil (catch clojure.lang.ExceptionInfo error (:status (ex-data error))))))
+          (is (= 1 @parser-calls))
+          (is (= before (canonical-counts))))))))
+
+(deftest master-csv-preserves-positions-and-stages-incomplete-rows
+  (let [csv (str (str/join ";" master-headings) "\n\n"
+                 "Żaneta Przykładowa;;;;;;tak\n"
+                 ";Ulica bez nazwy\n")]
+    (with-master-file (.getBytes csv "UTF-8")
+      (fn [file]
+        (let [{:keys [rows skipped-empty-rows]} (master/parse! file "csv" ";")]
+          (is (= 1 skipped-empty-rows))
+          (is (= [3 4] (mapv :row-number rows)))
+          (is (= ["valid" "invalid"] (mapv :validation-state rows)))
+          (is (= ["invalid-master-name"] (:validation-codes (second rows)))))))))
+
+(deftest master-xlsx-rejects-formulas-macros-merged-cells-and-limits
+  (doseq [[parts expected]
+          [[(fixture/entries {:sheet (master-sheet nil "<c r='Y3'><f>SUM(G3:X3)</f><v>12</v></c>")}) "unsupported-format"]
+           [(assoc (fixture/entries {:sheet (master-sheet nil "")}) "xl/vbaProject.bin" "mock") "unsupported-format"]
+           [(fixture/entries {:sheet (str/replace (master-sheet nil "") "</worksheet>" "<mergeCells><mergeCell ref='A3:B3'/></mergeCells></worksheet>")}) "unsupported-format"]
+           [(fixture/entries {:sheet (master-sheet 50001 "")}) "resource-limit"]]]
+    (with-master-file (fixture/zip-bytes parts)
+      (fn [file]
+        (is (= expected (try (master/parse! file "xlsx" nil) nil
+                             (catch clojure.lang.ExceptionInfo error (:code (ex-data error)))))))))
+  (with-master-file (byte-array (inc limits/file-bytes))
+    (fn [file]
+      (is (= 413 (try (master/parse! file "xlsx" nil) nil
+                      (catch clojure.lang.ExceptionInfo error (:status (ex-data error)))))))))
