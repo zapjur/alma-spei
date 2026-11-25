@@ -6,12 +6,12 @@
 
 (defonce pending (atom {}))
 (defn abort! [] (doseq [[_ controller] @pending] (.abort controller)) (reset! pending {}))
-(def mutations #{:decision-save :proposal-create :proposal-update :preview-create :reconcile :resolve-identity})
-(defn path [{:keys [op batch-id worksheet row proposal-id donor-id preview-id limit offset]}]
+(def mutations #{:decision-save :proposal-create :proposal-update :preview-create :reconcile})
+(defn path [{:keys [op batch-id worksheet row proposal-id donor-id preview-id limit offset queue]}]
   (let [base (str "/api/imports/" batch-id)
         page (str "?limit=" limit "&offset=" offset)]
     (str base (case op
-                :resolve-identity "/reconciliation/identity" :reconcile "/reconciliation" :reconciliation (str "/reconciliation" page)
+                :reconcile "/reconciliation" :reconciliation (str "/reconciliation" page "&queue=" queue)
                 (:decision-load :decision-save) (str "/rows/" worksheet "/" row "/decision")
                 :proposal-create "/donor-proposals" :proposal-update (str "/donor-proposals/" proposal-id)
                 :proposals (str "/donor-proposals" page)
@@ -19,15 +19,21 @@
                 :events (str "/review-events" page) :blockers (str "/review-blockers" page)
                 :preview-create "/preview" :preview-load (str "/previews/" preview-id)
                 :items (str "/previews/" preview-id "/items" page)))))
-(defn valid? [data {:keys [op batch-id worksheet row proposal-id donor-id preview-id limit offset]}]
-  (and (validation/valid? (case op (:decision-load :decision-save :resolve-identity) contract/decision-response
+(defn valid? [data {:keys [op batch-id worksheet row proposal-id donor-id preview-id limit offset queue]}]
+  (and (validation/valid? (case op (:decision-load :decision-save) contract/decision-response
                                 (:reconcile :reconciliation) reconciliation/response
                                 (:proposal-create :proposal-update) contract/proposal-response :proposals contract/proposals-response
                                 :payments contract/payments-response :events contract/events-response :blockers contract/blockers-response
                                 (:preview-create :preview-load) contract/preview-response :items contract/items-response) data)
        (= batch-id (if (= op :items) (get-in data [:preview :batch-id]) (get-in data [:batch :id])))
        (case op
-         (:decision-load :decision-save :resolve-identity) (and (= worksheet (get-in data [:row :worksheet-index])) (= row (get-in data [:row :row-number])))
+         (:decision-load :decision-save) (and (= worksheet (get-in data [:row :worksheet-index])) (= row (get-in data [:row :row-number])))
+         :reconciliation (let [exact? (= queue "exact")
+                               total (if exact? (:exact-match-count data) (get-in data [:counts :exceptions]))]
+                           (and (= queue (:queue data)) (= limit (:limit data)) (= offset (:offset data))
+                                (= (count (get data (if exact? :exact-matches :exceptions)))
+                                   (min limit (max 0 (- total offset))))
+                                (empty? (get data (if exact? :exceptions :exact-matches)))))
          :proposal-create (= batch-id (get-in data [:proposal :batch-id]))
          :proposal-update (and (= proposal-id (get-in data [:proposal :id])) (= batch-id (get-in data [:proposal :batch-id])))
          :payments (and (= donor-id (:donor-id data)) (= limit (:limit data)) (= offset (:offset data)) (= (count (:payments data)) (min limit (max 0 (- (:total data) offset)))))
@@ -42,7 +48,7 @@
   (let [controller (js/AbortController.) mutation? (contains? mutations op)
         reply (fn [value] (when (identical? controller (get @pending slot))
                             (swap! pending dissoc slot) (dispatch [:decision/loaded slot request-id op value])))
-        options (cond-> {:method (case op (:proposal-create :preview-create :reconcile :resolve-identity) "POST" (:decision-save :proposal-update) "PUT" "GET")
+        options (cond-> {:method (case op (:proposal-create :preview-create :reconcile) "POST" (:decision-save :proposal-update) "PUT" "GET")
                          :credentials "same-origin" :cache "no-store" :signal (.-signal controller) :headers {"Accept" "application/json"}}
                   mutation? (assoc :body (js/JSON.stringify (clj->js input))
                                    :headers {"Accept" "application/json" "Content-Type" "application/json" "X-CSRF-Token" csrf}))]

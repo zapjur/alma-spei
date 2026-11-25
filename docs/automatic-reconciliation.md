@@ -115,3 +115,20 @@ counts, logout purge and 390px overflow checks passed without uncaught browser
 exceptions. Desktop/mobile screenshots were visually inspected. Final database
 invariants confirmed the original 30 payments remained active after compensation;
 the disposable database and temporary server session were removed.
+
+## Task #62 review filters and manual decisions
+
+The import review summary has separate paged views for exceptions and automatic
+exact matches. The exact-match view is read-only and lists current catalogue
+decisions with automatic matching provenance. Manual decisions and new donor
+proposals are excluded from that view.
+
+The side-by-side exception editor shows ranked candidates and their Polish
+explanations. Choosing a suggestion, searching for a different profile or selecting
+a proposed donor prepares a draft. The reviewer enters the currency and evidence,
+chooses the payment disposition and confirms the overlap check before saving a
+complete decision. The existing versioned decision endpoint validates the save.
+
+The reconciliation GET endpoint accepts `queue=exceptions` (default) or
+`queue=exact` with its existing limit and offset. The response includes the
+selected queue and the exact-match count for the current catalogue snapshot.

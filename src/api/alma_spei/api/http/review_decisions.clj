@@ -11,10 +11,13 @@
 
 (defn number-value [value]
   (if (and (string? value) (re-matches #"[0-9]{1,15}" value)) (Long/parseLong value) value))
-(defn query-input [params payments?]
-  (into {} (map (fn [[key value]]
-                  [(get (if payments? {"limit" :limit "offset" :offset "donor-id" :donor-id} {"limit" :limit "offset" :offset}) key :unknown)
-                   (if (contains? #{"limit" "offset"} key) (number-value value) value)]) params)))
+(defn query-input [params action]
+  (let [fields (cond-> {"limit" :limit "offset" :offset}
+                 (= action :payments) (assoc "donor-id" :donor-id)
+                 (= action :reconciliation) (assoc "queue" :queue))]
+    (into {} (map (fn [[key value]]
+                    [(get fields key :unknown)
+                     (if (contains? #{"limit" "offset"} key) (number-value value) value)]) params))))
 (def mutations #{:proposal-create :proposal-update :decision-save :preview-create :reconcile :resolve-identity})
 (defn endpoint [ds settings action]
   (wrap-params
@@ -25,7 +28,7 @@
              token (get-in request [:cookies "alma-session" :value])
              path (:path-params request)
              locator {:worksheet (number-value (:worksheet path)) :row (number-value (:row path))}
-             input (if mutation? (:body-params request) (query-input (:query-params request) (= action :payments)))]
+             input (if mutation? (:body-params request) (query-input (:query-params request) action))]
          (when mutation?
            (when-not (and (= (:origin settings) (get-in request [:headers "origin"]))
                           (auth/valid-csrf? (:csrf-secret settings) csrf) (crypto/equal? csrf (get-in request [:headers "x-csrf-token"])))

@@ -25,13 +25,49 @@
        [:option {:value ""} "Nie wiem — pokaż wyjątki"] [:option {:value "individual"} "Osoby"]
        [:option {:value "business"} "Firmy"] [:option {:value "organization"} "Organizacje"]]]
      [:button {:type "submit" :class "button-primary" :disabled (= :loading (get-in state [:automation :status]))} "Dopasuj i pokaż podsumowanie"]]))
+(defn queue-panel [{:keys [queue exact-matches exact-match-count exceptions limit offset counts policy]} busy?]
+  (let [exact? (= "exact" queue)
+        total (if exact? exact-match-count (:exceptions counts))
+        go #(rf/dispatch [:decision/automatic-report %1 %2])]
+    [:section {:aria-labelledby "reconciliation-queue-heading"}
+     [:h3 {:id "reconciliation-queue-heading"} "Weryfikacja przelewów"]
+     [:div {:role "group" :aria-label "Filtr przelewów"}
+      [:button {:type "button" :aria-pressed (not exact?) :disabled busy?
+                :on-click #(go 0 "exceptions")} (str "Do wyjaśnienia (" (:exceptions counts) ")")]
+      [:button {:type "button" :aria-pressed exact? :disabled busy?
+                :on-click #(go 0 "exact")} (str "Dopasowane w 100% (" exact-match-count ")")]]
+     (when (zero? total)
+       [:p (if exact? "Brak automatycznych dopasowań w 100%." "Brak przelewów do wyjaśnienia.")])
+     (if exact?
+       (for [{:keys [row donor]} exact-matches]
+         ^{:key (str (:worksheet-index row) ":" (:row-number row))}
+         [:article {:class "exception-card"}
+          [:div [:strong (get-in row [:payload :sender])]
+           [:p (str (get-in row [:payload :date]) " · " (views/money (get-in row [:payload :amount])) " " (:currency policy))]]
+          [:div [:strong (:name donor)]
+           [:p (str (:street donor) ", " (:postal-code donor) " " (:city donor))]]])
+       (for [{:keys [row reason]} exceptions]
+         ^{:key (str (:worksheet-index row) ":" (:row-number row))}
+         [:article {:class "exception-card"}
+          [:div [:strong (get-in row [:payload :sender])]
+           [:p (str (get-in row [:payload :date]) " · " (or (views/money (get-in row [:payload :amount])) (get-in row [:payload :source-amount])) " " (:currency policy))]
+           [:p (get reasons reason (get reasons "manual-review"))]]
+          [:button {:type "button" :disabled busy?
+                    :on-click #(rf/dispatch [:review/find-row (:worksheet-index row) (:row-number row)])} "Wyjaśnij tę pozycję"]]))
+     (when (or (pos? offset) (> total limit))
+       [:nav {:class "import-pagination" :aria-label "Strony przelewów"}
+        [:button {:type "button" :disabled (or busy? (zero? offset))
+                  :on-click #(go (max 0 (- offset limit)) queue)} "Poprzednia strona"]
+        [:button {:type "button" :disabled (or busy? (>= (+ offset limit) total))
+                  :on-click #(go (+ offset limit) queue)} "Następna strona"]])]))
+
 (defn panel [state csrf]
   (let [{:keys [status error data]} (:automation state)
         counts (:counts data) busy? (or (= status :loading) (= :loading (get-in state [:work :status])))
         preview (:preview state)]
     [:section {:class "automatic-summary" :aria-busy busy?}
      [:div {:class "review-batch-bar"} [:strong (get-in state [:work :batch :original-filename])]
-      [:button {:type "button" :class "button-quiet" :disabled busy? :on-click #(rf/dispatch [:decision/automatic-report 0])} "Odśwież analizę"]]
+      [:button {:type "button" :class "button-quiet" :disabled busy? :on-click #(rf/dispatch [:decision/automatic-report 0 (:queue data)])} "Odśwież analizę"]]
      (when busy? [:p {:role "status"} "Dopasowywanie darczyńców i sprawdzanie wpłat…"])
      (when error [:div {:role "alert"} [:p (get decisions/errors error "Nie udało się odczytać analizy.")]
                   [:p "Jeśli wynik jest nieznany, odśwież analizę. Nie powtarzamy zapisu automatycznie."]])
@@ -49,19 +85,6 @@
            [:div [:h3 "Wszystko gotowe do zatwierdzenia"] [:p "Sprawdź pełną listę planowanych zmian. Zapis nastąpi dopiero po Twoim zatwierdzeniu."]]
            [:button {:type "button" :class "button-primary" :disabled (or busy? (= :loading (:status preview)))
                      :on-click #(rf/dispatch [:decision/automatic-preview csrf])} "Sprawdź zmiany i zatwierdź"]]
-          [:section {:aria-labelledby "exceptions-heading"}
-           [:button {:type "button" :disabled busy? :on-click #(rf/dispatch [:decision/automatic-run csrf (:policy data)])} "Odśwież automatyczne dopasowania"]
-           [:h3 {:id "exceptions-heading"} "Tylko te pozycje potrzebują Twojej decyzji"]
-           [:p "Pozostałe przelewy są już przygotowane. Nie musisz sprawdzać ich pojedynczo."]
-           (for [{:keys [row reason]} (:exceptions data)]
-             ^{:key (str (:worksheet-index row) ":" (:row-number row))}
-             [:article {:class "exception-card"}
-              [:div [:strong (get-in row [:payload :sender])]
-               [:p (str (get-in row [:payload :date]) " · " (or (views/money (get-in row [:payload :amount])) (get-in row [:payload :source-amount])) " " (get-in data [:policy :currency]))]
-               [:p (get reasons reason (get reasons "manual-review"))]]
-              [:button {:type "button" :disabled busy? :on-click #(rf/dispatch [:review/find-row (:worksheet-index row) (:row-number row)])} "Wyjaśnij tę pozycję"]])
-           [:nav {:class "import-pagination" :aria-label "Strony wyjątków"}
-            [:button {:type "button" :disabled (or busy? (zero? (:offset data))) :on-click #(rf/dispatch [:decision/automatic-report (max 0 (- (:offset data) (:limit data)))])} "Poprzednie wyjątki"]
-            [:span (str "Do wyjaśnienia: " (:exceptions counts))]
-            [:button {:type "button" :disabled (or busy? (>= (+ (:offset data) (:limit data)) (:exceptions counts))) :on-click #(rf/dispatch [:decision/automatic-report (+ (:offset data) (:limit data))])} "Następne wyjątki"]]])
+          [:button {:type "button" :disabled busy? :on-click #(rf/dispatch [:decision/automatic-run csrf (:policy data)])} "Odśwież automatyczne dopasowania"])
+        [queue-panel data busy?]
         [decisions/error-text preview]])]))

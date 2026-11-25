@@ -180,15 +180,27 @@
     (is (nil? (get-in result [:db :review :intent])))
     (is (nil? (get-in result [:db :reconciliation-intent])))))
 
-(deftest resolving-identity-returns-only-after-confirmed-complete-response
-  (let [db (-> (ready) (assoc-in [:review :resolving] true)
-               (assoc-in [:review :automation :data :policy] {:currency "PLN" :new-donor-type nil}))
-        started (events/automatic-target db [:decision/automatic-target "csrf" "existing-donor" fixture/other-id 3])
-        id (get-in started [:decision/request :request-id])
-        decision (assoc events/empty-draft :kind "existing-donor" :donor-id fixture/other-id :target-version 3 :complete true)
-        data {:batch fixture/batch :row fixture/row :catalog-version 5 :decision decision}]
-    (is (= :resolve-identity (get-in started [:decision/request :op])))
-    (is (= [:review/automatic] (:dispatch (events/loaded (:db started) [:decision/loaded [:editor] id :resolve-identity {:data data}]))))
-    (is (nil? (:dispatch (events/loaded (:db started) [:decision/loaded [:editor] id :resolve-identity {:data (assoc-in data [:decision :complete] false)}]))))
-    (doseq [error [:conflict :uncertain :validation]]
-      (is (nil? (:dispatch (events/loaded (:db started) [:decision/loaded [:editor] id :resolve-identity {:error error}])))))))
+(deftest selecting-a-suggestion-requires-explicit-financial-confirmation
+  (let [db (-> (ready)
+               (assoc-in [:review :resolving] true)
+               (assoc-in [:review :automation :data :policy] {:currency "PLN" :new-donor-type nil})
+               (assoc-in [:review :editor :draft :financial] {:currency "PLN" :evidence "Synthetic prior evidence"
+                                                              :disposition "new" :overlap-checked true}))
+        selected (events/choose-target db [:decision/target "existing-donor" fixture/other-id 3])
+        input (events/build-input (:review selected))
+        confirmed (-> selected
+                      (events/field [:decision/field [:financial :currency] "PLN"])
+                      (events/field [:decision/field [:financial :evidence] "Synthetic verified evidence"])
+                      (events/field [:decision/field [:financial :disposition] "new"]))
+        save (fn [state] (:decision/request (events/save-next state [:decision/save-next "csrf"])))]
+    (is (= fixture/other-id (:donor-id input)))
+    (is (nil? (get-in input [:financial :currency])))
+    (is (nil? (save selected)))
+    (is (nil? (save confirmed)))
+    (is (= :decision-save (:op (save (events/field confirmed [:decision/field [:financial :overlap-checked] true])))))))
+
+(deftest queue-filter-is-sent-with-the-selected-page
+  (let [request (get-in (events/automatic-report (ready) [:decision/automatic-report 25 "exact"]) [:decision/request])]
+    (is (= "exact" (:queue request)))
+    (is (= (str "/api/imports/" (:batch-id request) "/reconciliation?limit=25&offset=25&queue=exact")
+           (effects/path request)))))
