@@ -1,5 +1,6 @@
 (ns alma-spei.common.imports-test
   (:require [alma-spei.common.contracts.imports :as imports]
+            [alma-spei.common.contracts.source-rows :as source]
             [alma-spei.common.contracts.review :as review]
             [alma-spei.common.validation :as validation]
             #?(:clj [clojure.test :refer [deftest is]]
@@ -75,3 +76,26 @@
     (is (not (validation/valid? review/comparison-query {:donor-id id :score 100})))
     (is (validation/valid? review/locator {:worksheet 1 :row 2}))
     (is (not (validation/valid? review/locator {:worksheet 0 :row 2})))))
+
+(deftest master-contract-preserves-combined-name-and-source-observations
+  (let [row {:name "Żaneta Przykładowa"
+             :observations [{:column 7 :year 2021 :source-type "text" :value "tak"}
+                            {:column 11 :year 2025 :source-type "number" :value "10.50"}
+                            {:column 13 :source-type "number" :value "5"}]}]
+    (is (validation/valid? source/master-row row))
+    (is (not (validation/valid? source/master-row (assoc row :first-name "Żaneta"))))
+    (is (not (validation/valid? source/master-row (assoc-in row [:observations 0 :value] 1))))
+    (is (= [{:field [:name] :code :required :message "Podaj pełną nazwę darczyńcy."}]
+           (source/errors source/master-row (dissoc row :name))))))
+
+(deftest tax-contract-keeps-subjects-separate-and-preserves-decimal-text
+  (is (validation/valid? source/tax-row {:amount "9007199254740993.10"
+                                         :taxpayer {:first-name "Jan" :surname "Przykładowy"}
+                                         :spouse {:address "ul. Fikcyjna 1"}
+                                         :purpose "Cel fikcyjny"}))
+  (is (validation/valid? source/tax-row {:amount "0.00"}))
+  (doseq [value [12.3 "12,3" "-1" "1e2" "5\n" ""]]
+    (is (= [{:field [:amount] :code :invalid :message "Podaj kwotę w zapisie dziesiętnym z kropką."}]
+           (source/errors source/tax-row {:amount value}))))
+  (is (not (validation/valid? source/tax-row {:amount "12.30" :spouse {}})))
+  (is (not (validation/valid? source/tax-row {:amount "12.30" :taxpayer {:donor-id id}}))))
