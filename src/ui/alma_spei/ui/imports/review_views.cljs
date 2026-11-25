@@ -124,8 +124,11 @@
            (for [candidate candidates]
              ^{:key (:id candidate)} [:article {:class "review-proposal"}
                                       [:strong (:name candidate)] [:p (:street candidate) ", " (:postal-code candidate) " " (:city candidate)]
+                                      [:p (:match-reason candidate)]
                                       [:button {:type "button" :disabled (or (not (:is-active candidate)) (not (editing/editable? editor)))
                                                 :on-click #(rf/dispatch [:decision/automatic-target csrf "existing-donor" (:id candidate) (:version candidate)])} "To ten darczyńca"]])])
+        (when (get-in state [:resolution :new-profile-candidate])
+          [:p "Brak podobnych aktywnych profili. Sprawdź, czy dodać nowego darczyńcę."])
         [:p "Sprawdź nadawcę z pliku po lewej. Wybierz osobę lub organizację z bazy albo przygotuj nowy profil."]
         [:div {:class "donor-choice-actions"}
          [:button {:type "button" :class (when (= mode :existing) "button-primary") :disabled (not (editing/editable? editor))

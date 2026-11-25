@@ -5,7 +5,8 @@
 (def policy [:map {:closed true} [:currency decisions/currency] [:new-donor-type [:maybe [:enum "individual" "business" "organization"]]]])
 (def input [:map {:closed true} [:batch-version imports/positive-integer] [:policy policy]])
 (def exception-row [:map {:closed true} [:row imports/staged-row] [:reason :string]
-                    [:candidates [:vector donors/donor]]])
+                    [:new-profile-candidate :boolean]
+                    [:candidates [:vector (conj donors/donor [:match-reason :string])]]])
 (def counts [:map {:closed true} [:matched imports/row-count] [:new-donors imports/row-count]
              [:new-payments imports/row-count] [:duplicates imports/row-count] [:exceptions imports/row-count]
              [:total imports/row-count]])

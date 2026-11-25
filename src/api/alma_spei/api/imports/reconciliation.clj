@@ -6,6 +6,7 @@
             [alma-spei.api.imports.decision-repository :as repository]
             [alma-spei.api.imports.repository :as batches]
             [alma-spei.api.imports.review :as review]
+            [alma-spei.api.imports.matching :as suggestions]
             [alma-spei.api.imports.service :as imports]
             [alma-spei.api.donors.service :as donors]
             [alma-spei.common.imports.reconciliation :as matching]
@@ -22,7 +23,8 @@
           :policy imports/decode-json))
 (defn donor-index [tx]
   (let [all (batches/query tx ["SELECT * FROM donors ORDER BY id"])]
-    {:names (group-by #(matching/normalized (:name %)) all)
+    {:suggestions (suggestions/suggestion-index all)
+     :names (group-by #(matching/normalized (:name %)) all)
      :addresses (group-by #(subvec (matching/identity-key %) 1) all)}))
 (defn related [index profile]
   (vals (into {} (map (juxt :id identity)
@@ -47,6 +49,9 @@
       (not= "valid" (:validation-state row)) {:reason "invalid-row"}
       (not (pos? (bigdec (:amount payload)))) {:reason "unsupported-amount"}
       (> (get (:repeats ctx) key 0) 1) {:reason "payment-ambiguity"}
+      (and (or (:profile plan) (= "donor-type" (:reason plan)))
+           (seq (suggestions/suggestions (get-in ctx [:index :suggestions]) profile)))
+      {:reason "identity-ambiguity"}
       (:reason plan) plan
       (and (:profile plan) (> (count (set (map matching/identity-key (get-in ctx [:incoming-names (matching/normalized (:name profile))])))) 1)) {:reason "identity-ambiguity"}
       (and (:profile plan) (not (validation/valid? donor-contract/create-donor (:profile plan)))) {:reason "sender-format"}
@@ -62,9 +67,15 @@
                      (let [decision (get saved [(:worksheet-index row) (:row-number row)])
                            valid? (and (:complete decision) (= revision (:accepted-catalog-version decision))
                                        (= "valid" (:validation-state row)) (pos? (bigdec (get-in row [:payload :amount]))))
-                           plan (when-not valid? (classify ctx row profile key))]
+                           plan (when-not valid? (classify ctx row profile key))
+                           candidates (when (and profile (not valid?) (= "valid" (:validation-state row)))
+                                        (suggestions/suggestions (get-in ctx [:index :suggestions]) profile))]
                        {:row row :decision decision :resolved valid? :reason (if (and (:complete decision) (not= revision (:accepted-catalog-version decision))) "stale-catalog" (if (and decision (not= "unresolved" (:kind decision)) (not (:complete decision))) "payment-ambiguity" (or (:reason plan) "manual-review")))
-                        :candidates (vec (take 5 (:candidates plan)))})) (:rows ctx) (:parsed ctx) (:keys ctx))
+                        :new-profile-candidate (boolean (and profile (empty? candidates)
+                                                             (or (:profile plan) (= "donor-type" (:reason plan)))))
+                        :candidates (mapv (fn [{:keys [donor reason]}]
+                                            (assoc (donors/public-donor donor) :match-reason reason))
+                                          candidates)})) (:rows ctx) (:parsed ctx) (:keys ctx))
         resolved (filter :resolved rows) exceptions (remove :resolved rows)
         totals (reduce (fn [totals item]
                          (let [financial (imports/decode-json (get-in item [:decision :financial]))]
@@ -76,7 +87,8 @@
                 :duplicates (count (keep #(get-in % [:decision :donation-id]) resolved)) :exceptions (count exceptions)}]
     {:batch (imports/public-batch batch) :catalog-version revision :policy selected-policy :counts counts
      :totals (mapv (fn [[currency amount]] {:currency currency :amount (.toPlainString ^java.math.BigDecimal amount)}) (sort-by key totals))
-     :exceptions (mapv (fn [item] {:row (:row item) :reason (:reason item) :candidates (mapv donors/public-donor (:candidates item))}) (take limit (drop offset exceptions)))
+     :exceptions (mapv #(select-keys % [:row :reason :candidates :new-profile-candidate])
+                       (take limit (drop offset exceptions)))
      :limit limit :offset offset :ready (boolean (and (seq rows) (empty? exceptions) (= "review" (:state batch))))}))
 (defn read! [ds token id input]
   (auth/authorize! ds token false false)
