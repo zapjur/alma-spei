@@ -371,7 +371,7 @@
         (is (= 413 (:status (upload "sample.csv" bytes (assoc fields "source" source) {}))))))
     (let [failed (upload "sample.csv" bytes (assoc fields "source" "master") {})
           retry-fields (assoc fields "retry-batch-id" (get-in failed [:body :batch-id])
-                             "confirmed" "true" "version" "2")]
+                              "confirmed" "true" "version" "2")]
       (is (= 400 (:status failed)))
       (is (= 409 (:status (upload "sample.csv" bytes retry-fields {})))))
     (let [master (upload "synthetic-master.xlsx" master-bytes {"source" "master"} {})
