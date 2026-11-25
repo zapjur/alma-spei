@@ -3,6 +3,8 @@
             [alma-spei.api.fs.private-files :as private]
             [alma-spei.api.http.auth :as auth-http]
             [alma-spei.api.imports.adapters.bank :as bank]
+            [alma-spei.api.imports.adapters.master :as master]
+            [alma-spei.api.imports.adapters.tax :as tax]
             [alma-spei.api.imports.fingerprint :as fingerprint]
             [alma-spei.api.imports.limits :as limits]
             [alma-spei.api.imports.service :as service]
@@ -20,28 +22,34 @@
 
 (defn parse-options [params]
   (when-not (and (every? #{"file" "source" "separator" "retry-batch-id" "version" "confirmed"} (keys params))
-                 (= "bank" (get params "source"))
+                 (contains? #{"bank" "master" "tax"} (get params "source"))
                  (every? #(and (string? %) (<= (count %) 255)) (vals (dissoc params "file"))))
     (limits/reject! "invalid-structure"))
   (let [retry-id (get params "retry-batch-id") version (get params "version") confirmed (get params "confirmed")]
     (when (and (not retry-id) (or version confirmed)) (limits/reject! "invalid-structure"))
-    (cond-> {:separator (get params "separator")}
+    (cond-> {:source (get params "source") :separator (get params "separator")}
       retry-id (assoc :retry-id retry-id :retry {:version (when (and version (re-matches #"[1-9][0-9]{0,14}" version))
                                                             (Long/parseLong version))
                                                  :confirmed (= "true" confirmed)}))))
 
-(defn process-file! [ds token file filename options]
-  (service/validate! contract/upload-metadata {:source-type "bank" :original-filename filename})
-  (let [extension (some-> filename (str/split #"\.") last str/lower-case)]
+(defn process-file! [ds token file filename {:keys [source separator retry-id retry]}]
+  (let [metadata {:source-type source :original-filename filename}
+        [parse! parse-version mapping-version]
+        (case source
+          "bank" [bank/parse! bank/parse-version bank/mapping-version]
+          "master" [master/parse! master/parse-version master/mapping-version]
+          "tax" [tax/parse! tax/parse-version tax/mapping-version])
+        extension (some-> filename (str/split #"\.") last str/lower-case)]
+    (service/validate! contract/upload-metadata metadata)
     (when-not (#{"csv" "xlsx"} extension) (limits/reject! 415 "unsupported-format"))
-    (when (and (= extension "csv") (not (#{"," ";"} (:separator options)))) (limits/reject! "invalid-structure"))
+    (when (and (= extension "csv") (not (#{"," ";"} separator))) (limits/reject! "invalid-structure"))
     (let [measured (with-open [input (io/input-stream file)] (fingerprint/measure input limits/file-bytes))
-          batch (:batch (if (:retry-id options)
-                          (service/retry! ds token (:retry-id options) (:retry options) measured)
-                          (service/reserve! ds token {:source-type "bank" :original-filename filename} measured)))]
+          batch (:batch (if retry-id
+                          (service/retry! ds token retry-id retry measured source)
+                          (service/reserve! ds token metadata measured)))]
       (try
-        (let [result (bank/parse! file extension (:separator options))]
-          (service/stage! ds token batch result bank/parse-version bank/mapping-version)
+        (let [result (parse! file extension separator)]
+          (service/stage! ds token batch result parse-version mapping-version)
           ;; Read after commit; a read failure must not relabel a successfully staged batch.
           (assoc (service/rows! ds token (:id batch) {}) :skipped-empty-rows (:skipped-empty-rows result)))
         (catch Exception e

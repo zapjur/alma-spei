@@ -13,6 +13,8 @@
             [alma-spei.api.imports.repository :as repository]
             [alma-spei.api.imports.service :as service]
             [alma-spei.api.system :as system]
+            [alma-spei.common.contracts.imports :as contract]
+            [alma-spei.common.validation :as validation]
             [alma-spei.dev.bank-fixtures :as fixture]
             [alma-spei.integration.database-test :as database]
             [clojure.test :refer [deftest is use-fixtures]]
@@ -305,3 +307,80 @@
     (fn [file]
       (is (= 413 (try (master/parse! file "xlsx" nil) nil
                       (catch clojure.lang.ExceptionInfo error (:status (ex-data error)))))))))
+
+(def tax-headings ["Lp." "Imię podatnika" "Nazwisko podatnika" "Adres podatnika"
+                   "Imię małżonka" "Nazwisko małżonka" "Adres małżonka"
+                   "Cel szczegółowy" "Kwota przekazana"])
+
+(defn tax-sheet []
+  (let [row (fn [number values]
+              (str "<row r='" number "'>"
+                   (apply str (map-indexed
+                               (fn [index value]
+                                 (when value
+                                   (let [ref (str (char (+ (int \A) index)) number)]
+                                     (if (string? value)
+                                       (str "<c r='" ref "' t='inlineStr'><is><t>" value "</t></is></c>")
+                                       (str "<c r='" ref "'><v>" (:numeric value) "</v></c>")))))
+                               values))
+                   "</row>"))]
+    (str "<worksheet xmlns='" fixture/main-ns "'><sheetData>"
+         (row 2 ["Syntetyczna informacja techniczna"])
+         (row 3 tax-headings)
+         (row 4 [nil "Jan" "Przykładowy" "Adres A" "Anna" "Przykładowa" "Adres B" "Cel fikcyjny" {:numeric "1.234567890123456789E+3"}])
+         (row 6 [nil nil nil nil nil nil nil nil {:numeric "0.00"}])
+         (row 7 [nil "Jan" nil nil nil nil nil nil "błędna wartość"])
+         "</sheetData></worksheet>")))
+
+(deftest tax-upload-stages-distinct-roles-anonymous-evidence-and-safe-errors
+  (let [before (canonical-counts)
+        bytes (fixture/zip-bytes (fixture/entries {:sheet (tax-sheet)}))
+        response (upload "synthetic-tax.xlsx" bytes {"source" "tax"} {})
+        body (:body response)
+        paged (:body (page (get-in body [:batch :id]) "limit=1&offset=2"))]
+    (is (= 201 (:status response)))
+    (is (validation/valid? contract/upload-response body))
+    (is (= "tax" (get-in body [:batch :source-type])))
+    (is (= [4 6 7] (mapv :row-number (:rows body))))
+    (is (= {:amount "1234.567890123456789"
+            :taxpayer {:first-name "Jan" :surname "Przykładowy" :address "Adres A"}
+            :spouse {:first-name "Anna" :surname "Przykładowa" :address "Adres B"}
+            :purpose "Cel fikcyjny"}
+           (get-in body [:rows 0 :payload])))
+    (is (= {:amount "0.00"} (get-in body [:rows 1 :payload])))
+    (is (validation/valid? contract/rows-response paged))
+    (is (= "invalid" (get-in paged [:rows 0 :validation-state])))
+    (is (= [{:code "invalid-tax-amount" :message "Nieprawidłowa kwota przekazana."}]
+           (get-in paged [:rows 0 :errors])))
+    (is (= 409 (:status (upload "renamed.xlsx" bytes {"source" "master"} {}))))
+    (is (= 1 (count-of "import_batches")))
+    (is (= before (canonical-counts)))))
+
+(deftest source-dispatch-preserves-authorization-limits-and-retry-source
+  (let [header (str/join ";" tax-headings)
+        text (str "\nInformacja techniczna\n" header "\n;;;;;;;;12,30\n")
+        bytes (.getBytes text "UTF-8")
+        fields {"source" "tax" "separator" ";"}
+        master-bytes (fixture/zip-bytes (fixture/entries {:sheet (master-sheet nil "")}))]
+    (doseq [source ["master" "tax"]]
+      (is (= 403 (:status (upload "sample.csv" bytes (assoc fields "source" source)
+                                  {:headers (dissoc (headers) "x-csrf-token")}))))
+      (is (= 401 (:status (upload "sample.csv" bytes (assoc fields "source" source)
+                                  {:headers (assoc (headers) "cookie" (str "alma-csrf=" (:csrf *context*)))}))))
+      (with-redefs [limits/file-bytes 10]
+        (is (= 413 (:status (upload "sample.csv" bytes (assoc fields "source" source) {}))))))
+    (let [failed (upload "sample.csv" bytes (assoc fields "source" "master") {})
+          retry-fields (assoc fields "retry-batch-id" (get-in failed [:body :batch-id])
+                             "confirmed" "true" "version" "2")]
+      (is (= 400 (:status failed)))
+      (is (= 409 (:status (upload "sample.csv" bytes retry-fields {})))))
+    (let [master (upload "synthetic-master.xlsx" master-bytes {"source" "master"} {})
+          batch (get-in master [:body :batch])
+          id (:id batch)]
+      (is (= 201 (:status master)))
+      (is (validation/valid? contract/upload-response (:body master)))
+      (is (validation/valid? contract/rows-response (:body (page id nil))))
+      (is (= "master" (:source-type batch))))
+    (let [tax (upload "new-tax.csv" (.getBytes (str text ";;;;;;;;5\n") "UTF-8") fields {})]
+      (is (= 201 (:status tax)))
+      (is (= "12.30" (get-in tax [:body :rows 0 :payload :amount]))))))

@@ -70,9 +70,10 @@
        [:article {:class "execution-history-entry"}
         [:div {:class "history-entry-heading"} [:h3 (:original-filename batch)] [:span {:class "state-badge"} (get uploads/states (:state batch))]]
         [:p (str (date-text (:created-at batch)) " · " (get uploaders (:created-by batch)))]
-        (if (= "review" (:state batch))
-          [:a {:class "button-primary" :href (str "#review/" (:id batch) "/0")} "Kontynuuj sprawdzanie przelewów"]
-          [link {:mode :batch :batch-id (:id batch) :offset 0} "Zobacz wynik importu"])
+        (when (= "bank" (:source-type batch))
+          (if (= "review" (:state batch))
+            [:a {:class "button-primary" :href (str "#review/" (:id batch) "/0")} "Kontynuuj sprawdzanie przelewów"]
+            [link {:mode :batch :batch-id (:id batch) :offset 0} "Zobacz wynik importu"]))
         [:details {:class "review-secondary"} [:summary "Szczegóły pliku i przebiegu"] [batch-context batch (get uploaders (:created-by batch))]]])
      [page-controls state :history :history]]))
 (defn confirmation-panel [state csrf]
