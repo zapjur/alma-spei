@@ -35,9 +35,9 @@
 (defn file-row [tx id]
   (one tx ["SELECT *,file_hash_sha256 AS fingerprint FROM import_files WHERE id=?" id]))
 
-(defn stage-row! [tx id row payload codes]
-  (query tx ["INSERT INTO staged_rows(batch_id,worksheet_index,row_number,normalized_payload,validation_state,validation_codes,rule_version) VALUES (?,?,?,?::jsonb,?,?::jsonb,'bank-four-columns-v1')"
-             id (:worksheet-index row) (:row-number row) payload (:validation-state row) codes]))
+(defn stage-row! [tx id row payload codes rule-version]
+  (query tx ["INSERT INTO staged_rows(batch_id,worksheet_index,row_number,normalized_payload,validation_state,validation_codes,rule_version) VALUES (?,?,?,?::jsonb,?,?::jsonb,?)"
+             id (:worksheet-index row) (:row-number row) payload (:validation-state row) codes rule-version]))
 
 (defn mark-staged! [tx id total valid parse-version mapping-version]
   (query tx ["UPDATE import_batches SET state='review',version=version+1,updated_at=now(),parse_version=?,mapping_version=?,total_rows=?,valid_rows=?,invalid_rows=?,reviewed_rows=0 WHERE id=?"

@@ -1,12 +1,9 @@
 (ns alma-spei.api.imports.adapters.bank
   (:require [alma-spei.api.imports.limits :as limits]
             [alma-spei.api.imports.xlsx :as xlsx]
-            [clojure.data.csv :as csv]
-            [clojure.java.io :as io]
+            [alma-spei.api.imports.csv :as csv]
             [clojure.string :as str])
-  (:import [java.io InputStreamReader PushbackReader]
-           [java.nio.charset CodingErrorAction StandardCharsets]
-           [java.time LocalDate]
+  (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter ResolverStyle]))
 
 (def parse-version "bank-parser-v1")
@@ -69,20 +66,10 @@
               (update result :skipped-empty-rows inc)))
           {:rows [] :skipped-empty-rows 0} entries))
 
-(defn csv-rows [file separator]
-  (when-not (#{"," ";"} separator) (limits/reject! "invalid-structure"))
-  (let [decoder (doto (.newDecoder StandardCharsets/UTF_8)
-                  (.onMalformedInput CodingErrorAction/REPORT) (.onUnmappableCharacter CodingErrorAction/REPORT))]
-    (with-open [input (io/input-stream file)
-                reader (PushbackReader. (InputStreamReader. (limits/bounded-stream input limits/file-bytes) decoder))]
-      (let [first-char (.read reader)] (when (and (not= first-char -1) (not= first-char 65279)) (.unread reader first-char)))
-      (collect-rows (map-indexed (fn [i row] [(inc i) (mapv #(hash-map :value %) row)])
-                                 (csv/read-csv reader :separator (first separator))) false))))
-
 (defn parse! [file extension separator]
   (try
     (let [result (case extension
-                   "csv" (csv-rows file separator)
+                   "csv" (csv/with-rows file separator #(collect-rows % false))
                    "xlsx" (let [{:keys [rows epoch]} (xlsx/read-rows file)] (collect-rows rows epoch))
                    (limits/reject! 415 "unsupported-format"))]
       (when (empty? (:rows result)) (limits/reject! "invalid-structure"))

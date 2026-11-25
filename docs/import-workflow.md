@@ -189,3 +189,18 @@ show fixed Polish explanations and all blocker pages. Retained originals and arc
 reversal effects remain visible. A new reimport requires a freshly selected file and
 explicit attempt confirmation; the successor inherits no previous decisions. Real
 source reconciliation, backups and production/privacy readiness remain gated.
+
+## Task #66 master adapter
+
+The master adapter reads XLSX and UTF-8 CSV using the existing bounded readers.
+It checks the header at physical row 1 and preserves source row numbers. The
+combined name remains one field. Columns G–X are retained as source observations;
+G–K carry their 2021–2025 year labels and the other cells carry only their source
+positions. Column Y is a summary and is excluded. A populated Z data cell
+flags the row for review because its meaning is unknown.
+
+Supply a fresh values-only XLSX or CSV. XLSX files with formulas (including
+the original summary formula), macros, or merged cells are rejected. The
+adapter stages data through the existing fingerprint reservation and staging
+services. Multipart source selection and public row responses for master and
+tax are wired in task #67.
