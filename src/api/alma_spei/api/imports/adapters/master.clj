@@ -38,7 +38,7 @@
   (let [value (cell-value cell)]
     (when-not (str/blank? value)
       (cond-> {:column (inc index) :value value
-               :source-type (cond (text-types (:type cell)) "text"
+               :source-type (cond (contains? text-types (:type cell)) "text"
                                   (= "b" (:type cell)) "boolean"
                                   (and (= "n" (:type cell)) (not (:date? cell))) "number"
                                   :else "unsupported")}
@@ -57,7 +57,7 @@
                                                     :observations "invalid-master-observation"
                                                     "invalid-master-profile")
                                                  (source/errors source/master-row payload)))
-                  (some #(and (not (str/blank? (cell-value %))) (not (text-types (:type %)))) (take 6 cells))
+                  (some #(and (not (str/blank? (cell-value %))) (not (contains? text-types (:type %)))) (take 6 cells))
                   (conj "invalid-master-profile")
                   (not (str/blank? (cell-value (get cells 25))))
                   (conj "unexpected-master-column"))]
