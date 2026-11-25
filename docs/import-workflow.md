@@ -204,3 +204,19 @@ the original summary formula), macros, or merged cells are rejected. The
 adapter stages data through the existing fingerprint reservation and staging
 services. Multipart source selection and public row responses for master and
 tax are wired in task #67.
+
+## Task #67 tax adapter and upload routing
+
+The multipart upload endpoint accepts `source=bank`, `source=master` and
+`source=tax`. CSV uploads require `,` or `;` as the explicit delimiter.
+A retry requires the original source and identical bytes. File size, session,
+CSRF, fingerprint reservation and parser limits apply to all three sources.
+
+The tax adapter validates the row 3 headings and stages data from row 4 onward.
+It keeps taxpayer and spouse information in separate fields. Blank subject
+fields are allowed, and transferred amounts are represented as decimal strings
+without inferring currency, year or a donor association. Invalid data rows
+remain visible through the paged rows endpoint with Polish errors.
+
+Master and tax uploads create staging records. The bank review and commit
+workflow continues to accept bank batches.

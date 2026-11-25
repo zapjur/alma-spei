@@ -1,5 +1,6 @@
 (ns alma-spei.common.contracts.imports
-  (:require [clojure.string :as str]
+  (:require [alma-spei.common.contracts.source-rows :as source-rows]
+            [clojure.string :as str]
             [alma-spei.common.validation :as validation]))
 
 (def safe-maximum 9007199254740991)
@@ -60,16 +61,56 @@
    "missing-sender" "Brakuje danych nadawcy."
    "invalid-sender" "Dane nadawcy muszą być tekstem."
    "invalid-description" "Opis transakcji musi być tekstem."
-   "invalid-amount" "Nieprawidłowa kwota transakcji."})
-(def staged-row
+   "invalid-amount" "Nieprawidłowa kwota transakcji."
+   "invalid-master-name" "Podaj pełną nazwę darczyńcy."
+   "invalid-master-profile" "Nieprawidłowe dane darczyńcy."
+   "invalid-master-observation" "Nieprawidłowa wartość obserwacji źródłowej."
+   "unexpected-master-column" "Nieobsługiwane dane w kolumnie Z."
+   "invalid-taxpayer" "Nieprawidłowe dane podatnika."
+   "invalid-tax-spouse" "Nieprawidłowe dane małżonka."
+   "invalid-tax-purpose" "Nieprawidłowy cel szczegółowy."
+   "invalid-tax-amount" "Nieprawidłowa kwota przekazana."})
+(defn staged-row-schema [payload]
   [:map {:closed true}
    [:worksheet-index positive-integer] [:row-number positive-integer]
-   [:payload row-payload] [:validation-state [:enum "valid" "invalid"]]
+   [:payload payload] [:validation-state [:enum "valid" "invalid"]]
    [:errors [:vector [:map {:closed true} [:code :string] [:message :string]]]]])
+
+(def staged-row (staged-row-schema row-payload))
+(def master-staged-payload
+  [:map {:closed true}
+   [:name {:optional true} source-text]
+   [:street {:optional true} source-text]
+   [:postal-code {:optional true} source-text]
+   [:city {:optional true} source-text]
+   [:province {:optional true} source-text]
+   [:gender {:optional true} source-text]
+   [:observations [:vector {:max 18}
+                   [:map {:closed true}
+                    [:column [:int {:min 7 :max 24}]]
+                    [:year {:optional true} [:int {:min 2021 :max 2025}]]
+                    [:source-type [:enum "text" "number" "boolean" "unsupported"]]
+                    [:value source-text]]]]])
+(def tax-staged-payload
+  [:map {:closed true}
+   [:taxpayer {:optional true} source-rows/tax-subject]
+   [:spouse {:optional true} source-rows/tax-subject]
+   [:purpose {:optional true} source-text]
+   [:amount [:maybe source-text]]])
+
 (def page-query [:map {:closed true} [:limit {:optional true} [:int {:min 1 :max 100}]]
                  [:offset {:optional true} row-count]])
-(def rows-response [:map {:closed true} [:batch batch] [:rows [:vector staged-row]]
-                    [:total row-count] [:limit positive-integer] [:offset row-count]])
-(def upload-response [:map {:closed true} [:batch batch] [:rows [:vector staged-row]]
-                      [:total row-count] [:limit positive-integer] [:offset row-count]
-                      [:skipped-empty-rows row-count]])
+
+(defn staged-page-response [payload upload?]
+  (cond-> [:map {:closed true} [:batch batch] [:rows [:vector (staged-row-schema payload)]]
+           [:total row-count] [:limit positive-integer] [:offset row-count]]
+    upload? (conj [:skipped-empty-rows row-count])))
+
+(defn source-response [upload?]
+  [:multi {:dispatch #(get-in % [:batch :source-type])}
+   ["bank" (staged-page-response row-payload upload?)]
+   ["master" (staged-page-response master-staged-payload upload?)]
+   ["tax" (staged-page-response tax-staged-payload upload?)]])
+
+(def rows-response (source-response false))
+(def upload-response (source-response true))

@@ -58,7 +58,8 @@
 
 (defn retry!
   ([ds token id input] (retry! ds token id input nil))
-  ([ds token id input measured]
+  ([ds token id input measured] (retry! ds token id input measured "bank"))
+  ([ds token id input measured source]
    (jdbc/with-transaction [tx ds]
      (let [actor (auth/authorize! tx token false false)]
        (validate! contract/retry-request input)
@@ -68,7 +69,7 @@
            (validate! contract/fingerprint measured)
            (let [file (repository/file-row tx (:file-id batch))]
              (when-not (and (= (:file-hash-sha256 measured) (:fingerprint file))
-                            (= (:byte-count measured) (:byte-count file)) (= "bank" (:source-type batch)))
+                            (= (:byte-count measured) (:byte-count file)) (= source (:source-type batch)))
                (fail! 409 "retry-file-mismatch" "Ponowienie wymaga tego samego pliku źródłowego."))))
         ;; Undone attempts retain their file identity and require fresh staging/review.
          (when-not (and (or (= "failed" (:state batch))
